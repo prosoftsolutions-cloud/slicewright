@@ -1,0 +1,110 @@
+{
+  "sharedParams": {
+    "activeSlicePath": "./slice",
+    "docPath": "./doc"
+  },
+  "pipeline": [
+    {
+      "name": "intake",
+      "skill": "slice:intake",
+      "executionMode": "fork",
+      "params": {
+        "context": "Find out used repository and available tools to work with it. Ensure that you have clean latest sources version; otherwise ask user to fix it"
+      }
+    },
+    {
+      "name": "clarify",
+      "skill": "slice:clarify",
+      "executionMode": "fork",
+      "params": {
+        "context": ""
+      }
+    },
+    {
+      "name": "spec-review",
+      "skill": "slice:human",
+      "executionMode": "inline",
+      "params": {
+        "files": ["spec.md", "input.md"],
+        "context": "Present spec.md for approval. Walk the user through its open questions, then ask them to confirm the assumptions. Apply each answer to the requirements and acceptance criteria it affects, keep the spec's format, remove a question from Open questions once it is answered, and remove that section when it is empty. The user decides whether to approve the spec. When approved, append a '## Session summary' section to input.md, replacing an earlier one and never changing the text above it: the decisions, each question with its answer, the assumptions the user confirmed, anything still open, and a last line 'See spec: spec.md'."
+      }
+    },
+    {
+      "name": "design",
+      "skill": "TBD",
+      "executionMode": "inline",
+      "params": {
+        "context": "",
+        "availableSkills": [
+          {
+            "agent": "general-purpose",
+            "context": "",
+            "executionMode": "fork"
+          }
+        ]
+      }
+    },
+    {
+      "name": "implement",
+      "skill": "TBD",
+      "executionMode": "fork",
+      "params": {
+        "context": "",
+        "availableSkills": [
+          {
+            "taskType": "document",
+            "agent": "general-purpose",
+            "context": "document changes according to specified rules",
+            "executionMode": "fork"
+          },
+          {
+            "taskType": "infrastructure",
+            "agent": "general-purpose",
+            "context": "Find out deploy method in documentation and deploy changes to environment you found",
+            "executionMode": "fork"
+          }
+        ]
+      }
+    },
+    {
+      "name": "review",
+      "skill": "TBD",
+      "executionMode": "fork",
+      "params": {
+        "context": ""
+      }
+    },
+    {
+      "name": "deploy",
+      "skill": "TBD",
+      "executionMode": "inline",
+      "params": {
+        "context": ""
+      }
+    },
+    {
+      "name": "test",
+      "skill": "TBD",
+      "executionMode": "fork",
+      "params": {
+        "context": ""
+      }
+    },
+    {
+      "name": "archive",
+      "skill": "TBD",
+      "executionMode": "inline",
+      "params": {
+        "context": ""
+      }
+    },
+    {
+      "name": "release",
+      "skill": "TBD",
+      "executionMode": "inline",
+      "params": {
+        "context": ""
+      }
+    }
+  ]
+}

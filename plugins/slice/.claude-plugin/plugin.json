@@ -1,0 +1,9 @@
+{
+  "name": "slice",
+  "displayName": "Slicewright",
+  "version": "0.1.0",
+  "description": "Run a feature as a thin, verified, documented slice through a configurable pipeline",
+  "author": {
+    "name": "Sergey Prokofiev"
+  }
+}

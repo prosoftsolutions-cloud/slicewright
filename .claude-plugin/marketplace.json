@@ -1,0 +1,14 @@
+{
+  "name": "slicewright",
+  "description": "Slicewright: a configurable per-feature AI delivery pipeline for Claude Code",
+  "owner": {
+    "name": "Sergey Prokofiev"
+  },
+  "plugins": [
+    {
+      "name": "slice",
+      "source": "./plugins/slice",
+      "description": "Run a feature as a thin, verified, documented slice through a configurable pipeline"
+    }
+  ]
+}
