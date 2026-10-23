@@ -2,23 +2,29 @@
 name: run
 description: Internal Slicewright pipeline runner. Called by /slice:new and /slice:resume, never on its own.
 user-invocable: false
-allowed-tools: Read(/${CLAUDE_PLUGIN_ROOT}/defaults.json) Read(~/.slicewright/config.json) Bash(date:*) Skill(slice:intake) Skill(slice:clarify) Skill(slice:human) Skill(slice:route) Skill(slice:tracking)
+allowed-tools: Read(/${CLAUDE_PLUGIN_ROOT}/defaults.json) Read(~/.slicewright/**) Bash(date:*) Skill(slice:intake) Skill(slice:clarify) Skill(slice:design) Skill(slice:plan) Skill(slice:human) Skill(slice:route) Skill(slice:tracking)
 ---
 
 # Run the pipeline
 
 Arguments: $ARGUMENTS
 
-The first word is the mode, `new` or `resume`. In `new` mode the rest is the user's request.
+The first word is the mode, `new` or `resume`. It may be followed by `--config <name>`, which picks a configuration other than the default. In `new` mode the rest is the user's request.
 
 ## 1. Load the configuration
+
+The configuration's file name is `<name>` from `--config`, with `.json` added when it doesn't end in it. Without `--config`, it is `config.json`. A name must be a plain file name: if it contains `/` or `..`, stop and say so. Its local variant replaces the ending `.json` with `.local.json`.
+
+When resuming without `--config`, load `config.json` first. If `<activeSlicePath>/status.md` records another `config`, load that configuration instead, and say so.
 
 Read these JSON files in order, each with the Read tool rather than a shell command, and skip any that don't exist. Relative paths resolve against the project root.
 
 1. `${CLAUDE_PLUGIN_ROOT}/defaults.json`: defaults shipped with the plugin
-2. `~/.slicewright/config.json`: user overrides
-3. `.slicewright/config.json`: project overrides, committed
-4. `.slicewright/config.local.json`: personal overrides, not committed
+2. `~/.slicewright/<file name>`: user overrides
+3. `.slicewright/<file name>`: project overrides, committed
+4. `.slicewright/<local variant>`: personal overrides, not committed
+
+With a name other than `config.json`, at least one of files 2 to 4 must exist. Otherwise stop, and say which files you looked for.
 
 Say which files you loaded. Merge them: objects merge key by key, at any depth, and any other value from a later file, such as an array or text, replaces the earlier one. So a project's `sharedParams` adds to the defaults, while its `pipeline` replaces the default pipeline as a whole.
 
@@ -27,7 +33,7 @@ The configuration has two keys:
 - `sharedParams`: params every stage receives
 - `pipeline`: the stages, in order. A stage has `name`, `skill`, `executionMode`, `agent` (the subagent type for `fork`), `args` (the exact argument text for a skill that has its own syntax), `next` (the stage to go to after this one, instead of the following one) and `params` (the stage's own params).
 
-You use only these keys, and from the params only `activeSlicePath` in `sharedParams`, `context` and the skill names in `availableSkills`. Everything else in the params is for the stages. Below, `<activeSlicePath>` means `sharedParams.activeSlicePath`.
+You use only these keys. From the params you use only `activeSlicePath` in `sharedParams`, `context`, and every `skill` key at any depth, which always names a skill that the stage may invoke. Everything else in the params is for the stages. Below, `<activeSlicePath>` means `sharedParams.activeSlicePath`.
 
 ## 2. Check the pipeline
 
@@ -42,7 +48,8 @@ Check the whole pipeline before running anything. If any of these is wrong, list
 - a stage's `args` is not text, or a stage has `args` without a `skill`
 - a stage's `params` sets `activeSlicePath`: every stage must use the folder you track
 - a stage's `next` doesn't name a stage in `pipeline`
-- a `skill`, in a stage or in an entry of its `params.availableSkills`, is neither `TBD` nor one of the skills you can invoke
+- a stage's `skill` is neither `TBD` nor one of the skills you can invoke
+- a `skill` key anywhere in a stage's `params` doesn't name one of the skills you can invoke
 
 Warn about any other key, at the top level or in a stage: it is probably a typo, or a value that belongs in `params`. Then go on.
 
@@ -149,7 +156,7 @@ After the last stage, with neither `next`, no stage follows. If the result's `ne
 
 In the Artifact column, write the result's `files` as names relative to `<activeSlicePath>`. Pass `next=<next stage>` when a stage follows.
 
-- **`ok` for the first stage of a new slice**, when `status.md` doesn't exist yet: invoke `slice:tracking` with `create <activeSlicePath> <stage> started=<start time>`, adding `title`, `id` and `source` from the result when it has them. Then invoke it with `finish <activeSlicePath> <stage> done <files> next=<next stage>`.
+- **`ok` for the first stage of a new slice**, when `status.md` doesn't exist yet: invoke `slice:tracking` with `create <activeSlicePath> <stage> started=<start time>`, adding `title`, `id` and `source` from the result when it has them, and `config=<file name>` when it isn't `config.json`. Then invoke it with `finish <activeSlicePath> <stage> done <files> next=<next stage>`.
 - **`ok` for any other stage:** invoke `slice:tracking` with `finish <activeSlicePath> <stage> done <files> next=<next stage>`.
 - **`skipped`:** invoke `slice:tracking` with `finish <activeSlicePath> <stage> skipped next=<next stage>`, and tell the user why the stage was skipped.
 - **`error`:** if `status.md` exists, invoke `slice:tracking` with `finish <activeSlicePath> <stage> failed`. Show the message and the fix, and stop.

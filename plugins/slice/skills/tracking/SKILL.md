@@ -21,6 +21,7 @@ stage: spec-review      # the current or last stage
 status: done            # running | done | failed
 next:                   # the stage to run next; empty when none follows
 source: PAY-123         # leave this line out when there is none
+config: hotfix.json     # the configuration the slice runs with; leave this line out for config.json
 created: 2026-10-22T12:20:05Z
 updated: 2026-10-22T12:41:03Z
 ---
@@ -51,7 +52,7 @@ A stage can run more than once in a slice. Each run has its own row: the first i
 
 The arguments are `<operation> <activeSlicePath>` followed by the operation's values.
 
-- **`create <path> <stage> [title="<title>"] [id=<id>] [source=<ref>] [started=<timestamp>]`:** write the file with the stage's row `in-progress` and `status: running`. `started` is for a stage that began before the file could exist: use it for the row's Started, for `created` and for the first Log line. Without it, use the current time. Fail if the file already exists.
+- **`create <path> <stage> [title="<title>"] [id=<id>] [source=<ref>] [config=<file name>] [started=<timestamp>]`:** write the file with the stage's row `in-progress` and `status: running`. `started` is for a stage that began before the file could exist: use it for the row's Started, for `created` and for the first Log line. Without it, use the current time. Fail if the file already exists.
 - **`start <path> <stage>`:** set `stage`, `status: running` and an empty `next`. If the stage's latest row is `failed` or `in-progress`, from a failed or interrupted run, replace that row. Otherwise add a new row, numbered when the stage already has rows.
 - **`finish <path> <stage> <done|failed|skipped> [artifact] [next=<stage>]`:** fill the stage's latest row: status, artifact, finish time and duration. Fill Tokens only with a measured count you can actually see, such as session statistics; otherwise write `—`. Set `status` to `failed` when the stage failed and to `done` otherwise, and set `next` to the given stage, or empty. End the Log line with `→ <next>` when there is one.
 

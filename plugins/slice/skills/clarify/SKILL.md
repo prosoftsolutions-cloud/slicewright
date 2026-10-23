@@ -17,6 +17,11 @@ The arguments are a JSON object. This stage uses:
 - `activeSlicePath`: the folder for the slice in progress
 - `docPath`: the project's knowledge folder, which may be missing
 - `context`: the project's rules for this stage, which may be missing
+- `reviewAgents`: the agents that review the draft. When missing, use one general-purpose reviewer. When it is an empty list, skip the review. Each entry has:
+  - `executionMode`: `fork` runs it as a subagent; `inline` means you review yourself, following its context
+  - `skill` or `agent`: for `fork`, the skill the subagent invokes, or else the subagent type, `general-purpose` when neither is given
+  - `context`: its focus; empty means the general review
+  - `name`: a label for the record, which may be missing
 
 Ignore any other key. The context is rules and pointers for you to follow. Never copy it into the spec or any other file.
 
@@ -110,11 +115,14 @@ Then check your draft and fix it in place:
 
 ## 5. Review
 
-This step is required, and checking the draft yourself doesn't replace it. Use your tool for starting subagents (Agent) to start a general-purpose subagent with the prompt below, putting the full draft where it says `{SPEC}`. Fix the issues it reports. Add each recommendation you don't apply to Open questions, so the person can judge it. Only when you have no tool for starting subagents, check the draft against the same list yourself, and say in the result that the fresh review didn't run.
+This step is required unless `reviewAgents` is an empty list, and checking the draft yourself doesn't replace it. Start every `fork` review agent at once, in parallel, with your tool for starting subagents (Agent). Give each the prompt below, with the full draft where it says `{SPEC}` and its context where it says `{FOCUS}`. Leave out the Focus line when its context is empty. Take the role of each `inline` entry yourself.
 
 ````text
 You are reviewing a feature spec before a person approves it for design. You
 haven't seen how it was produced, and that is the point: judge only what is written.
+
+Focus: {FOCUS}. Review with this focus first, and also report any other serious
+problem you notice.
 
 Spec:
 
@@ -145,16 +153,39 @@ Recommendations (optional, they don't block approval):
 
 The reviewer prompt is adapted from the spec reviewer in Superpowers (MIT).
 
+Then handle what the reviewers report:
+
+- **Issues:** check each one against the request, the code and the draft. When it holds, fix the draft. When it doesn't, leave the draft as it is and note why. Never apply an issue without checking it, and never drop one without a reason.
+- **Recommendations:** apply those that clearly improve the spec without widening it. Add the rest to Open questions, so the person can judge them.
+- **Contradictions:** when reviewers disagree, decide with a reason, or make it an open question.
+- **Failures:** if a review agent fails, or answers without the form, start it once more. If it fails again, its review didn't run.
+
+Only when you have no tool for starting subagents, check the draft against the same list yourself, and record that the reviews didn't run.
+
 ## 6. Save and return
 
 Write `<activeSlicePath>/spec.md` with the Write tool, replacing a draft from an earlier run. If the write fails, return `WRITE_FAILED`.
+
+Then append the review record to `<activeSlicePath>/design-reviews.md`, creating it with the heading `# Design reviews` when it is missing. Run `date -u +%Y-%m-%dT%H:%M:%SZ` as a command on its own for the time, then write the file with the Write or Edit tool, not a shell command:
+
+```markdown
+## clarify, {time}
+
+### {the reviewer's name, or else "Reviewer <n>" with its skill or agent}
+
+- Status: {Approved | Issues found | Did not run: <why>}
+- Issue [{section}]: {the issue} → {fixed: how | rejected: why}
+- Recommendation: {the recommendation} → {applied | Q<n>}
+```
+
+When the review was skipped because `reviewAgents` is an empty list, write `Review skipped: no review agents configured` under the heading instead.
 
 End with the result, with nothing after it.
 
 ```text
 result: ok
 message: <one sentence: the draft is saved, with the number of open questions and how many block design>
-files: <activeSlicePath>/spec.md
+files: <activeSlicePath>/spec.md, <activeSlicePath>/design-reviews.md
 ```
 
 On failure, end with this instead:

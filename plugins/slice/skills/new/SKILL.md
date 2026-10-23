@@ -1,7 +1,7 @@
 ---
 name: new
 description: Start a new Slicewright slice from a feature request and run it through the delivery pipeline.
-argument-hint: "<feature request>"
+argument-hint: "[--config <name>] <feature request>"
 disable-model-invocation: true
 allowed-tools: Skill(slice:run)
 ---

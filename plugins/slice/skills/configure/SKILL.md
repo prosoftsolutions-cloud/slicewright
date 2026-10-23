@@ -28,7 +28,7 @@ If `.slicewright/config.json` doesn't exist, read `${CLAUDE_PLUGIN_ROOT}/default
    3. `.slicewright/config.json`
    4. `.slicewright/config.local.json`
 2. List the rules the pipeline needs:
-   - `Skill(<name>)` for every `skill` in `pipeline`, in its stages and in the entries of their `params.availableSkills`, except `TBD`
+   - `Skill(<name>)` for every stage's `skill` except `TBD`, and for every `skill` key at any depth in a stage's `params`
    - `Skill(slice:run)`, `Skill(slice:tracking)` and `Bash(date:*)`, which the pipeline runner uses
 
    Leave out the tools a stage's context mentions, such as git or a ticket CLI: the user approves those when they are first used. Leave out reads of the plugin's own files: their path changes when the plugin updates.

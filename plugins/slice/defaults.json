@@ -17,7 +17,14 @@
       "skill": "slice:clarify",
       "executionMode": "fork",
       "params": {
-        "context": ""
+        "context": "",
+        "reviewAgents": [
+          {
+            "agent": "general-purpose",
+            "context": "",
+            "executionMode": "fork"
+          }
+        ]
       }
     },
     {
@@ -26,22 +33,63 @@
       "executionMode": "inline",
       "params": {
         "files": ["spec.md", "input.md"],
-        "context": "Present spec.md for approval. Walk the user through its open questions, then ask them to confirm the assumptions. Apply each answer to the requirements and acceptance criteria it affects, keep the spec's format, remove a question from Open questions once it is answered, and remove that section when it is empty. The user decides whether to approve the spec. When approved, append a '## Session summary' section to input.md, replacing an earlier one and never changing the text above it: the decisions, each question with its answer, the assumptions the user confirmed, anything still open, and a last line 'See spec: spec.md'."
+        "context": "Present spec.md for approval, with a short summary of clarify's latest entry in design-reviews.md: issues fixed, issues rejected and why, and reviews that didn't run. Walk the user through its open questions, then ask them to confirm the assumptions. Apply each answer to the requirements and acceptance criteria it affects, keep the spec's format, remove a question from Open questions once it is answered, and remove that section when it is empty. The user decides whether to approve the spec. When approved, append a '## Session summary' section to input.md, replacing an earlier one and never changing the text above it: the decisions, each question with its answer, the assumptions the user confirmed, anything still open, and a last line 'See spec: spec.md'."
       }
     },
     {
       "name": "design",
-      "skill": "TBD",
-      "executionMode": "inline",
+      "skill": "slice:design",
+      "executionMode": "fork",
       "params": {
         "context": "",
-        "availableSkills": [
+        "designAgents": [
+          {
+            "agent": "general-purpose",
+            "context": "",
+            "executionMode": "fork"
+          }
+        ],
+        "reviewAgents": [
           {
             "agent": "general-purpose",
             "context": "",
             "executionMode": "fork"
           }
         ]
+      }
+    },
+    {
+      "name": "plan",
+      "skill": "slice:plan",
+      "executionMode": "fork",
+      "params": {
+        "context": "",
+        "taskTypes": {
+          "code": "source code, tests and configuration that go through a build and test cycle",
+          "document": "documentation that has no build or test step",
+          "infrastructure": "infrastructure and deployment changes"
+        },
+        "reviewAgents": [
+          {
+            "agent": "general-purpose",
+            "context": "",
+            "executionMode": "fork"
+          }
+        ]
+      }
+    },
+    {
+      "name": "design-review",
+      "skill": "slice:human",
+      "executionMode": "inline",
+      "params": {
+        "files": ["design.md"],
+        "context": "Present design.md and plan.md for approval: first the open questions in design.md, then the key decisions and risks, then the tasks and the order they run in, then a short summary of the latest design and plan entries in design-reviews.md: issues fixed, issues rejected and why, and reviews that didn't run. Record each answer in design.md: apply it to the decisions it affects, and remove the question once answered. Write what the user wants changed in the design or the plan under '## Review notes' in design.md, replacing that section from an earlier review. Never edit plan.md or the task files. Then the user chooses: approve when the design and the plan are right, re-plan when only the plan must change, re-design when the design itself must change.",
+        "choices": {
+          "approve": "implement",
+          "re-plan": "plan",
+          "re-design": "design"
+        }
       }
     },
     {
