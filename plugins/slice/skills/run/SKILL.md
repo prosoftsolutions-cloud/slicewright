@@ -26,7 +26,7 @@ Read these JSON files in order, each with the Read tool rather than a shell comm
 
 With a name other than `config.json`, at least one of files 2 to 4 must exist. Otherwise stop, and say which files you looked for.
 
-Say which files you loaded. Merge them: objects merge key by key, at any depth, and any other value from a later file, such as an array or text, replaces the earlier one. So a project's `sharedParams` adds to the defaults, while its `pipeline` replaces the default pipeline as a whole.
+Say which files you loaded. Merge them: objects merge key by key, at any depth, and any other value from a later file, such as an array or text, replaces the earlier one. A `null` value removes the key. So a project's `sharedParams` adds to the defaults, and drops one of them with `null`, while its `pipeline` replaces the default pipeline as a whole.
 
 The configuration has two keys:
 
@@ -49,7 +49,7 @@ Check the whole pipeline before running anything. If any of these is wrong, list
 - a stage's `params` sets `activeSlicePath`: every stage must use the folder you track
 - a stage's `next` doesn't name a stage in `pipeline`
 - a stage's `skill` is neither `TBD` nor one of the skills you can invoke
-- a `skill` key anywhere in a stage's `params` doesn't name one of the skills you can invoke
+- a `skill` key anywhere in `sharedParams` or a stage's `params` doesn't name one of the skills you can invoke
 
 Warn about any other key, at the top level or in a stage: it is probably a typo, or a value that belongs in `params`. Then go on.
 
@@ -100,6 +100,7 @@ The params are everything a stage receives. Never add your own keys, such as the
 {
   "activeSlicePath": "./slice",
   "docPath": "./doc",
+  "taskTypes": { "infrastructure": { … }, "backend": { … }, … },
   "context": "Find out used repository and available tools to work with it. …",
   "input": "Add retry for failed payment webhooks"
 }

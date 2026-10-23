@@ -22,13 +22,13 @@ If `.slicewright/config.json` doesn't exist, read `${CLAUDE_PLUGIN_ROOT}/default
 
 ## 3. Update the permissions
 
-1. Load the configuration: read these JSON files in order, each with the Read tool rather than a shell command, and skip any that don't exist. Objects merge key by key, at any depth, and any other value from a later file, such as an array or text, replaces the earlier one.
+1. Load the configuration: read these JSON files in order, each with the Read tool rather than a shell command, and skip any that don't exist. Objects merge key by key, at any depth, any other value from a later file, such as an array or text, replaces the earlier one, and a `null` value removes the key.
    1. `${CLAUDE_PLUGIN_ROOT}/defaults.json`
    2. `~/.slicewright/config.json`
    3. `.slicewright/config.json`
    4. `.slicewright/config.local.json`
 2. List the rules the pipeline needs:
-   - `Skill(<name>)` for every stage's `skill` except `TBD`, and for every `skill` key at any depth in a stage's `params`
+   - `Skill(<name>)` for every stage's `skill` except `TBD`, and for every `skill` key at any depth in `sharedParams` or a stage's `params`
    - `Skill(slice:run)`, `Skill(slice:tracking)` and `Bash(date:*)`, which the pipeline runner uses
 
    Leave out the tools a stage's context mentions, such as git or a ticket CLI: the user approves those when they are first used. Leave out reads of the plugin's own files: their path changes when the plugin updates.
