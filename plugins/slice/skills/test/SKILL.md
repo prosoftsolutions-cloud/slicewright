@@ -27,7 +27,7 @@ Ignore any other key. The contexts are rules to follow. Never copy them into a f
 
 Never ask the user anything. Never change the project's source files; test output such as reports and screenshots is fine.
 
-Commands: run every command on its own, never chained with `&&`, `;` or pipes, and take every time from `date -u +%Y-%m-%dT%H:%M:%SZ`. Start every subagent in the foreground, never in the background, and never end your turn while one is running.
+Commands: run every command on its own, never chained with `&&`, `;` or pipes, and take every time from `date -u +%Y-%m-%dT%H:%M:%SZ`. Never change the shell's folder with `cd`. Start every subagent in the foreground, never in the background, and never end your turn while one is running.
 
 ## 1. Gather
 
@@ -37,7 +37,7 @@ Commands: run every command on its own, never chained with `&&`, `;` or pipes, a
 
 ## 2. Run the suites
 
-Run the suites one at a time, in list order, because suites that share an environment can disturb each other. Start each `fork` suite with your tool for starting subagents (Agent), with this prompt. Run each `inline` suite yourself, following the same prompt.
+Note the time before the first suite starts and after the last one ends: the run's window, which tells later stages where to look in logs and traces. Run the suites one at a time, in list order, because suites that share an environment can disturb each other. Start each `fork` suite with your tool for starting subagents (Agent), with this prompt. Run each `inline` suite yourself, following the same prompt.
 
 ````text
 You are running one test suite of a feature slice and reporting its results. Don't
@@ -70,6 +70,7 @@ Counts: passed {n}, failed {n}, flaky {n}, disabled {n}
 Failed: each failed test, with its name, its file and the last lines of its output; or none
 Flaky: each flaky test, with its name and file; or none
 Disabled: each skipped or disabled test, with its name, its file and the reason given; or none
+Artifacts: where the suite's reports, screenshots, traces and logs are; or none
 Reason: for NOT_STARTED, what stopped the suite
 ````
 
@@ -85,11 +86,15 @@ Append the run to `<activeSlicePath>/<record>`, creating it with the heading `# 
 - Revision: {the current revision of the project's version control, or "no version control"}
 - Deployment: {the target and endpoint tested, or "none recorded"}
 - Suites: {each suite: ran | not started: why}
+- Window: {start} to {end}
 - Totals: passed {n} · failed {n} · flaky {n} · disabled {n}
+- Earlier fixes: {each test decided `fix` in the previous run of its suite: passes now | still fails as TR{n}-{k}}, or none
+- New failures: {each failed test, with its id, whose suite ran in its previous run without this test failing}, or none
 
 ### {suite name}
 
 - Commands: {each command}
+- Artifacts: {where the suite's reports, screenshots, traces and logs are}
 - Passed {n} · Failed {n} · Flaky {n} · Disabled {n}
 
 #### Failed
@@ -108,7 +113,7 @@ Append the run to `<activeSlicePath>/<record>`, creating it with the heading `# 
 
 Leave out sections that would be empty. Number the failed, flaky and disabled tests of the run `TR{n}-1`, `TR{n}-2` and so on, in the order they appear, so a person can name them.
 
-A person writes the Decision lines later: `fix`, `accepted: <why>`, or `deferred: <why>, <owner>, <date>`. When a person accepted or deferred the same test, by name and file, in an earlier run, write that decision instead of `open`, followed by the id it was decided under, such as `accepted: <why> (TR1-2)`. Never carry a `fix` decision over: a test still failing after its fix is open again. A flaky or disabled test has no Decision line; when a person picks one to fix, ` · Decision: fix` is added to the end of its line.
+A person writes the Decision lines later: `fix`, `fix: <a note>`, `accepted: <why>`, or `deferred: <why>, <owner>, <date>`. When a person accepted or deferred the same test, by name and file, in an earlier run, write that decision instead of `open`, followed by the id it was decided under, such as `accepted: <why> (TR1-2)`. Never carry a `fix` decision over: a test still failing after its fix is open again. A flaky or disabled test has no Decision line; when a person picks one to fix, ` · Decision: fix` is added to the end of its line, with an optional note as `fix: <a note>`.
 
 ## 4. Return
 

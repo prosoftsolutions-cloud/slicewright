@@ -22,7 +22,7 @@ The arguments are a JSON object. This stage uses:
   - `context`: the expertise for this type: how this kind of work is done in the project
 - `context`: the project's rules for this stage, which may be missing, such as how to divide the work and size tasks
 - `plan`: the plan file to write, in `activeSlicePath`; `plan.md` when missing. A `*` in the name stands for a round number: the round of the findings in findings mode, otherwise one more than the highest existing.
-- `findings`: a review record in `activeSlicePath`, such as `code-reviews.md`. When given, you plan in findings mode, described below.
+- `findings`: a record of findings in `activeSlicePath`, such as `code-reviews.md` or `bug-analyses.md`. When given, you plan in findings mode, described below.
 - `sequential`: when `true`, the tasks run one after another instead of in parallel
 - `reviewAgents`: the agents that review the plan. When missing, use one general-purpose reviewer. When it is an empty list, skip the review. Each entry has:
   - `executionMode`: `fork` runs it as a subagent; `inline` means you review yourself, following its context
@@ -33,6 +33,8 @@ The arguments are a JSON object. This stage uses:
 Ignore any other key. The contexts are rules for you and the agents to follow. Never copy them into a file.
 
 Never ask the user anything.
+
+Commands: run every command on its own, never chained with `&&`, `;` or pipes. Never change the shell's folder with `cd`. Write every file with the Write tool, never with a shell command.
 
 ## 1. Read the slice
 
@@ -140,7 +142,7 @@ Then check that the pieces fit, and fix the plan in place:
 
 A new plan supersedes the old one of the same plan file: replace the task files it listed. Never touch the task files of another plan file. When implementation already started, keep the files of the ticked tasks and their ticked lines, replace the rest, and number the new tasks after the last ticked one. Write each file with the Write tool. If a write fails, return `WRITE_FAILED`.
 
-Write one file per task, `<activeSlicePath>/tasks/T01-<short-kebab-title>.md`, numbering the tasks in wave order. When the plan file's name has a round number, prefix the task ids with it, such as `R1-T01`, and the file names too, such as `tasks/R1-T01-<short-kebab-title>.md`. Every task id below then carries the prefix:
+Write one file per task, `<activeSlicePath>/tasks/T01-<short-kebab-title>.md`, numbering the tasks in wave order. When the plan file's name has a round number, prefix the task ids with the first letter of the plan file's name, as a capital, and the round number, such as `R1-T01` for `review-round-1.md` or `B1-T01` for `bug-round-1.md`, and the file names too, such as `tasks/R1-T01-<short-kebab-title>.md`. Every task id below then carries the prefix:
 
 ```markdown
 ---
@@ -198,7 +200,7 @@ tasks: {number of tasks}
 waves: {number of waves}
 ---
 
-# Plan: {feature name; in findings mode "{feature name}, fixes for review round {n}"}
+# Plan: {feature name; in findings mode "{feature name}, fixes for round {n} of {the findings file}"}
 
 ## Scope
 

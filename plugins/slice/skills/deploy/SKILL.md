@@ -21,7 +21,7 @@ Ignore any other key. The context is rules to follow. Never copy it into a file.
 
 Never ask the user anything. Never change the project's source files; build output is fine.
 
-Commands: run every command on its own, never chained with `&&`, `;` or pipes, and take every time from `date -u +%Y-%m-%dT%H:%M:%SZ`. Give long commands the longest timeout your shell tool allows; if one still runs out of time, run it in the background and wait for it.
+Commands: run every command on its own, never chained with `&&`, `;` or pipes, and take every time from `date -u +%Y-%m-%dT%H:%M:%SZ`. Never change the shell's folder with `cd`. Give long commands the longest timeout your shell tool allows; if one still runs out of time, run it in the background and wait for it.
 
 ## 1. Deploy
 
@@ -73,5 +73,5 @@ result: error
 code: <DEPLOY_FAILED | ENVIRONMENT | WRITE_FAILED>
 message: <one sentence: the step that failed and why>
 fix: <what the user should do>
-files: <activeSlicePath>/deployments.md, or none>
+files: <activeSlicePath>/deployments.md, or none
 ```

@@ -310,9 +310,9 @@
         "files": [
           "test-reports.md"
         ],
-        "context": "Skip this step when test-reports.md has no run, or when every suite of its latest run ran and no failed test in that run has an open decision; flaky and disabled tests alone don't stop the run. Otherwise present the latest run: the revision and the deployment it tested, its totals, and each suite that didn't start, with why. When a test decided 'fix' in an earlier run still fails, say that first: its fix didn't work. Then present each failed test with an open decision, with its output; then the failed tests already accepted or deferred, with that decision; then a short list of the flaky and disabled tests. Present the results as recorded: analyzing a failure is a later stage's job. For each failed test with an open decision the user decides: fix, accept with a reason, or defer with a reason, an owner and a date. Write each decision on the test's Decision line in test-reports.md, as 'fix', 'accepted: <why>' or 'deferred: <why>, <owner>, <date>'. The user may also pick flaky or disabled tests to fix: add ' · Decision: fix' to the end of each picked one's line; the others need no decision. Let the user answer for all tests in one message, such as 'fix TR1-1, TR1-3; ignore TR1-2'. Ignoring a failed test means accepting it: ask for the reason when it is missing. A flaky or disabled test the user doesn't name stays as it is. Change nothing else in test-reports.md. Then the user chooses: fix when any test is to be fixed; finish when none is; retry the tests once the cause is fixed, when a suite didn't start or the environment misbehaved; redeploy when the deployment is missing or outdated; stop to end the run.",
+        "context": "Skip this step when test-reports.md has no run, or when every suite of its latest run ran and no failed test in that run has an open decision; flaky and disabled tests alone don't stop the run. Otherwise, when bug-analyses.md exists, the slice is in a bug-fix loop: show first a table with one row per round in bug-analyses.md: the iteration, which is the round number; the test run it started from; the tests it was to fix; in the test run after it, the earlier fixes that still fail and the new failures; the causes it fixed and those it left open; and its fix blast radius. When the tests to fix, the fixes that still fail, the new failures or the blast radius grew from one iteration to the next, say first that the loop seems to be going the wrong way, and that the decision is the user's. Then present the latest run: the revision and the deployment it tested, its totals, its earlier fixes that still fail and its new failures, and each suite that didn't start, with why. Then present each failed test with an open decision, with its output; then the failed tests already accepted or deferred, with that decision; then a short list of the flaky and disabled tests. Present the results as recorded: analyzing a failure is a later stage's job. For each failed test with an open decision the user decides: fix, accept with a reason, or defer with a reason, an owner and a date. Ask for a note on each test to fix: what the user has seen or suspects, such as when it started or which data triggers it. A note is optional, and the analysis treats it as a lead; a note that says what the right behavior is counts as part of the bar for its test. When a test picked to fix had its cause left open in an earlier round of bug-analyses.md because the bar doesn't say what is right, ask the user to say what is right in its note. Write each decision on the test's Decision line in test-reports.md, as 'fix', 'fix: <note>', 'accepted: <why>' or 'deferred: <why>, <owner>, <date>'. The user may also pick flaky or disabled tests to fix: add ' · Decision: fix' to the end of each picked one's line, or ' · Decision: fix: <note>'; the others need no decision. Let the user answer for all tests in one message, such as 'fix TR1-1: only with long titles, TR1-3; ignore TR1-2'. Ignoring a failed test means accepting it: ask for the reason when it is missing. A flaky or disabled test the user doesn't name stays as it is. Change nothing else in test-reports.md. Then the user chooses: fix when any test is to be fixed; finish when none is; retry the tests once the cause is fixed, when a suite didn't start or the environment misbehaved; redeploy when the deployment is missing or outdated; stop to end the run.",
         "choices": {
-          "fix": "bug-fix-plan",
+          "fix": "bug-analysis",
           "finish": "archive",
           "retry": "test",
           "redeploy": "deploy",
@@ -321,19 +321,131 @@
       }
     },
     {
-      "name": "bug-fix-plan",
-      "skill": "TBD",
+      "name": "bug-analysis",
+      "skill": "slice:diagnose",
       "executionMode": "fork",
+      "onError": "bug-fix-decision",
       "params": {
-        "context": ""
+        "context": "",
+        "record": "bug-analyses.md",
+        "tests": "test-reports.md",
+        "confidence": "high",
+        "isolation": "none",
+        "instrumentAgents": [
+          {
+            "name": "evidence",
+            "agent": "general-purpose",
+            "executionMode": "fork",
+            "priority": 1,
+            "readOnly": true,
+            "context": "Read each failed test's output and artifacts, the test's code and the code it exercises, and the logs, traces and data the project's documentation says the deployment keeps, for the run's window. Follow each failure back from where it shows to where the wrong behavior starts."
+          },
+          {
+            "name": "red-green",
+            "agent": "general-purpose",
+            "executionMode": "fork",
+            "priority": 2,
+            "readOnly": false,
+            "context": "Reproduce each failure on this machine: with a test against the code that needs nothing deployed, or against the application started the way the project's documentation describes. Write a test that fails because of the cause, then make the smallest change at the cause that makes it pass, and run the project's other tests that need nothing deployed to show they still pass. Report the test and the change."
+          }
+        ]
+      }
+    },
+    {
+      "name": "bug-fix-plan",
+      "skill": "slice:plan",
+      "executionMode": "fork",
+      "onError": "bug-fix-decision",
+      "params": {
+        "context": "Each task removes the root cause its findings name, where the wrong behavior starts; never a change that only hides the failure, such as a retry, a longer timeout, an ignored error, a skipped or deleted test, a looser assertion or a special case for the test's data. Change what a test expects only when its finding names the requirement, criterion, decision or contract that makes the old expectation wrong. A diagnostics finding adds only what its Fix names, such as logging.",
+        "findings": "bug-analyses.md",
+        "plan": "bug-round-*.md",
+        "sequential": true,
+        "reviewAgents": []
+      }
+    },
+    {
+      "name": "bug-fix",
+      "skill": "slice:implement",
+      "executionMode": "fork",
+      "onError": "bug-fix-decision",
+      "params": {
+        "context": "",
+        "plan": "bug-round-*.md",
+        "isolation": "none",
+        "maxParallel": 0,
+        "fixRounds": 2,
+        "qualityGateAgents": [
+          {
+            "name": "build and tests",
+            "executionMode": "fork",
+            "agent": "general-purpose",
+            "context": "Build the project in release configuration, run every test that needs nothing deployed and no external environment, and run the project's quality tools, such as linters, analyzers and formatters in check mode."
+          }
+        ],
+        "reviewAgents": [
+          {
+            "name": "root cause",
+            "agent": "general-purpose",
+            "executionMode": "fork",
+            "context": "Applies to every task. Check that the change removes the root cause its task names, where the wrong behavior starts, and is never a change that only hides the failure, such as a retry, a longer timeout, an ignored error, a skipped or deleted test, a looser assertion or a special case for the test's data. A changed test expectation must name the requirement, criterion, decision or contract that makes the old one wrong."
+          }
+        ]
+      }
+    },
+    {
+      "name": "bug-fix-decision",
+      "skill": "slice:human",
+      "executionMode": "inline",
+      "params": {
+        "files": [
+          "bug-analyses.md"
+        ],
+        "context": "Present iteration n of the bug-fix loop, the latest round in bug-analyses.md. Show first a table with one row per round in bug-analyses.md: the iteration, which is the round number; the test run it started from; the tests it was to fix; in the test run after it, the earlier fixes that still fail and the new failures; the causes it fixed and those it left open; and its fix blast radius. When the tests to fix, the fixes that still fail, the new failures or the blast radius grew from one iteration to the next, say first that the loop seems to be going the wrong way, and that the decision is the user's. When a stage of this iteration stopped with an error, say next why, from the latest round in bug-analyses.md or the latest run in implement.md. Then present what the iteration fixed: each cause decided fix, with its tests, its level and its fix, and how the fix went in implement.md's latest run, naming any cause whose failing test passed before any change as not reproduced. Then present what it left for a person: each cause of the latest round decided open, with why and its evidence. Open causes of earlier rounds aren't decided here: to fix one, the user picks its test again in test-decision, with a note saying what is right. For each open cause of the latest round the user may decide: fix, saying what is right when the bar doesn't say, accept with a reason, or defer with a reason, an owner and a date. Write each decision on the cause's Decision line in bug-analyses.md, as 'fix: <what is right>', 'accepted: <why>' or 'deferred: <why>, <owner>, <date>', and change nothing else there; an open cause the user doesn't decide stays open. Then the user chooses: fix to plan and fix the causes just decided fix; redeploy to deploy the fixes and run the tests again; retest to run the tests without deploying, when only tests changed or the environment was fixed by hand; retry to run the fix again once the reason it stopped is fixed; reanalyze to run the analysis again, for example after it stopped or after new data became available; finish to go on to archive without more fixes; stop to end the run.",
+        "choices": {
+          "fix": "bug-fix-plan",
+          "redeploy": "deploy",
+          "retest": "test",
+          "retry": "bug-fix",
+          "reanalyze": "bug-analysis",
+          "finish": "archive",
+          "stop": null
+        }
       }
     },
     {
       "name": "archive",
-      "skill": "TBD",
-      "executionMode": "inline",
+      "skill": "slice:archive",
+      "executionMode": "fork",
       "params": {
-        "context": ""
+        "context": "",
+        "archivePath": "./doc/slices",
+        "knowledgeAgents": [
+          {
+            "name": "spec",
+            "agent": "general-purpose",
+            "executionMode": "fork",
+            "context": "The living specification: merge the slice's spec.md into the project's specification of the system as it is now. Add its requirements and acceptance criteria to the area they belong to, change the ones the slice changed, and remove the ones it removed, so the specification describes the current behavior, not the change. Leave out the slice's own ids, open questions and assumptions."
+          },
+          {
+            "name": "decisions",
+            "agent": "general-purpose",
+            "executionMode": "fork",
+            "context": "Decision records: for each significant decision in the slice's design.md, write one record: its context, the decision, the alternatives considered and why they were rejected, and its consequences. When a decision replaces an earlier record, mark that record as superseded and link the two."
+          },
+          {
+            "name": "known-issues",
+            "agent": "general-purpose",
+            "executionMode": "fork",
+            "context": "Known issues: every review finding in code-reviews.md and every test in test-reports.md that a person accepted or deferred, with its reason and, when deferred, its owner and date, and every root cause in bug-analyses.md left open for a person, with why. Remove the entries this slice fixed."
+          },
+          {
+            "name": "lessons",
+            "agent": "general-purpose",
+            "executionMode": "fork",
+            "context": "Lessons from the bug-fix loop in bug-analyses.md: for each root cause, what broke, why, which instrument found it at which level, and the data that was missing when a diagnostics fix was needed; and for each instrument, the causes it found. Write nothing when the slice had no bug-fix rounds."
+          }
+        ]
       }
     },
     {

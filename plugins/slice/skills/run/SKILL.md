@@ -2,7 +2,7 @@
 name: run
 description: Internal Slicewright pipeline runner. Called by /slice:new and /slice:resume, never on its own.
 user-invocable: false
-allowed-tools: Read(/${CLAUDE_PLUGIN_ROOT}/defaults.json) Read(~/.slicewright/**) Bash(date:*) Skill(slice:intake) Skill(slice:clarify) Skill(slice:design) Skill(slice:plan) Skill(slice:implement) Skill(slice:review) Skill(slice:deploy) Skill(slice:test) Skill(slice:human) Skill(slice:route) Skill(slice:tracking)
+allowed-tools: Read(/${CLAUDE_PLUGIN_ROOT}/defaults.json) Read(~/.slicewright/**) Bash(date:*) Skill(slice:intake) Skill(slice:clarify) Skill(slice:design) Skill(slice:plan) Skill(slice:implement) Skill(slice:review) Skill(slice:deploy) Skill(slice:test) Skill(slice:diagnose) Skill(slice:archive) Skill(slice:human) Skill(slice:route) Skill(slice:tracking)
 ---
 
 # Run the pipeline

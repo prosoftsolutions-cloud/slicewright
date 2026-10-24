@@ -30,7 +30,7 @@ Ignore any other key. The contexts are rules to follow. Never copy them into a f
 
 Never ask the user anything. When a person must decide, stop with an error that says what.
 
-Commands: run every command on its own, never chained with `&&`, `;` or pipes, and take every time from `date -u +%Y-%m-%dT%H:%M:%SZ`. Give long commands, such as a release build or a full test run, the longest timeout your shell tool allows; if one still runs out of time, run it in the background and wait for it.
+Commands: run every command on its own, never chained with `&&`, `;` or pipes, and take every time from `date -u +%Y-%m-%dT%H:%M:%SZ`. Never change the shell's folder with `cd`. Give long commands, such as a release build or a full test run, the longest timeout your shell tool allows; if one still runs out of time, run it in the background and wait for it.
 
 Subagents: start every subagent, whether worker, gate, reviewer or fixer, in the foreground, never in the background, so that its answer comes back to you in this same turn. A background subagent can't ask for any permission, and your turn would end before the work is done. Never end your turn while a subagent is running, and never wait with `sleep`.
 

@@ -27,7 +27,7 @@ Ignore any other key. The contexts are rules for you and the agents to follow. N
 
 Never ask the user anything, and never change any file except the record.
 
-Commands: run every command on its own, never chained with `&&`, `;` or pipes, and take every time from `date -u +%Y-%m-%dT%H:%M:%SZ`. Start every subagent in the foreground, never in the background, and never end your turn while one is running.
+Commands: run every command on its own, never chained with `&&`, `;` or pipes, and take every time from `date -u +%Y-%m-%dT%H:%M:%SZ`. Never change the shell's folder with `cd`. Start every subagent in the foreground, never in the background, and never end your turn while one is running.
 
 ## 1. Read the slice
 

@@ -41,6 +41,10 @@ If `.slicewright/config.json` doesn't exist, read `${CLAUDE_PLUGIN_ROOT}/default
 
    When a stage's skill is `slice:deploy` or `slice:test`, also propose the commands its context names, and for `slice:test` the test commands of its `testAgents` and the CI configuration.
 
+   When a stage's skill is `slice:diagnose`, also propose the read-only commands its `instrumentAgents` contexts name, such as queries of logs, traces or a database, and for instruments with `readOnly: false` the project's build, test and run commands, and the version control commands that show the current revision and restore files.
+
+   When a stage's skill is `slice:archive`, also propose the command that copies a folder, and the version control commands that stage files and commit them.
+
    Show these proposed rules and ask the user which to add, and wait for the answer. Add only those.
    With `isolation: worktree`, when copies are git worktrees, because the project uses git and has no `WorktreeCreate` hook, also set `worktree.baseRef` to `"head"` in the settings file, so each worker's copy starts from the slice's latest revision.
 3. Choose the settings file. If `.claude/settings.json` or `.claude/settings.local.json` already allows `Skill(slice:run)`, use that file. Otherwise ask the user which one to use, and wait for the answer:
