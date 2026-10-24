@@ -7,7 +7,7 @@ allowed-tools: Bash(date:*)
 
 # Slice status
 
-`<activeSlicePath>/status.md` is the state of the slice in progress. It must hold enough to resume the slice in a new session. The file is small: rewrite all of it on every update.
+`<activeSlicePath>/status.md` is the state of the slice in progress. It must hold enough to resume the slice in a new session. The file is small: rewrite all of it on every update, with the Write tool, never with a shell command.
 
 Take every timestamp from `date -u +%Y-%m-%dT%H:%M:%SZ`. Never guess a time.
 

@@ -81,7 +81,7 @@ For each skill the run will use, look for `Skill(<name>)` in `permissions.allow`
 
 ## 4. Run the stages
 
-Start with the stage from section 3, and run one stage at a time. For each stage:
+Start with the stage from section 3, and run one stage at a time. Stay in the project folder for the whole run: never change the shell's folder with `cd`, because every stage and the subagents it starts run from that folder. For each stage:
 
 ### 4.1 Start
 

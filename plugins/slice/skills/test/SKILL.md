@@ -1,6 +1,6 @@
 ---
 name: test
-description: Internal Slicewright test stage. Runs the configured test suites, such as end-to-end or integration tests against a deployment, and records the results; failed, flaky and disabled tests go into the report. It doesn't analyze failures. Run by the Slicewright pipeline, never on its own.
+description: Internal Slicewright test stage. Runs the configured test suites, such as end-to-end or integration tests against a deployment, and records the results for a person to decide on; failed, flaky and disabled tests go into the report. It doesn't analyze failures. Run by the Slicewright pipeline, never on its own.
 user-invocable: false
 ---
 
@@ -33,6 +33,7 @@ Commands: run every command on its own, never chained with `&&`, `;` or pipes, a
 
 - **The deployment:** the latest entry in `<activeSlicePath>/deployments.md`, when it exists, gives the target and the endpoint the suites run against.
 - **The slice's deployed checks:** every Markdown file in `<activeSlicePath>` with a `## Deployed checks` section lists tests this slice wrote that need a deployment.
+- **Earlier decisions:** the earlier runs in `<activeSlicePath>/<record>`, when it exists, and the decisions a person made on their failed tests.
 
 ## 2. Run the suites
 
@@ -93,18 +94,21 @@ Append the run to `<activeSlicePath>/<record>`, creating it with the heading `# 
 
 #### Failed
 
-- **{test name}** `{file}`: {the last lines of its output}
+- **TR{n}-{k}** {test name} `{file}`: {the last lines of its output}
+  - Decision: open
 
 #### Flaky
 
-- **{test name}** `{file}`
+- **TR{n}-{k}** {test name} `{file}`
 
 #### Disabled
 
-- **{test name}** `{file}`: {the reason given, or "no reason given"}
+- **TR{n}-{k}** {test name} `{file}`: {the reason given, or "no reason given"}
 ```
 
-Leave out sections that would be empty.
+Leave out sections that would be empty. Number the failed, flaky and disabled tests of the run `TR{n}-1`, `TR{n}-2` and so on, in the order they appear, so a person can name them.
+
+A person writes the Decision lines later: `fix`, `accepted: <why>`, or `deferred: <why>, <owner>, <date>`. When a person accepted or deferred the same test, by name and file, in an earlier run, write that decision instead of `open`, followed by the id it was decided under, such as `accepted: <why> (TR1-2)`. Never carry a `fix` decision over: a test still failing after its fix is open again. A flaky or disabled test has no Decision line; when a person picks one to fix, ` · Decision: fix` is added to the end of its line.
 
 ## 4. Return
 
@@ -112,7 +116,7 @@ Failed, flaky and disabled tests are results, not errors: return `ok` with them 
 
 ```text
 result: ok
-message: <one sentence: the suites run, and the totals passed, failed, flaky and disabled>
+message: <one sentence: the suites run, the totals passed, failed, flaky and disabled, and how many failed tests are open for a decision>
 files: <activeSlicePath>/<record>
 ```
 

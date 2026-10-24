@@ -287,7 +287,6 @@
       "name": "test",
       "skill": "slice:test",
       "executionMode": "fork",
-      "next": "archive",
       "onError": "test-decision",
       "params": {
         "context": "",
@@ -306,13 +305,27 @@
       "name": "test-decision",
       "skill": "slice:human",
       "executionMode": "inline",
+      "next": "archive",
       "params": {
-        "context": "Present why the test run stopped, from the latest run in test-reports.md: each suite that didn't start and why, and the results of the suites that ran. Then the user chooses: retry the tests once the cause is fixed, for example when the environment answers again; redeploy when the deployment is missing or outdated; stop to end the run.",
+        "files": [
+          "test-reports.md"
+        ],
+        "context": "Skip this step when test-reports.md has no run, or when every suite of its latest run ran and no failed test in that run has an open decision; flaky and disabled tests alone don't stop the run. Otherwise present the latest run: the revision and the deployment it tested, its totals, and each suite that didn't start, with why. When a test decided 'fix' in an earlier run still fails, say that first: its fix didn't work. Then present each failed test with an open decision, with its output; then the failed tests already accepted or deferred, with that decision; then a short list of the flaky and disabled tests. Present the results as recorded: analyzing a failure is a later stage's job. For each failed test with an open decision the user decides: fix, accept with a reason, or defer with a reason, an owner and a date. Write each decision on the test's Decision line in test-reports.md, as 'fix', 'accepted: <why>' or 'deferred: <why>, <owner>, <date>'. The user may also pick flaky or disabled tests to fix: add ' · Decision: fix' to the end of each picked one's line; the others need no decision. Let the user answer for all tests in one message, such as 'fix TR1-1, TR1-3; ignore TR1-2'. Ignoring a failed test means accepting it: ask for the reason when it is missing. A flaky or disabled test the user doesn't name stays as it is. Change nothing else in test-reports.md. Then the user chooses: fix when any test is to be fixed; finish when none is; retry the tests once the cause is fixed, when a suite didn't start or the environment misbehaved; redeploy when the deployment is missing or outdated; stop to end the run.",
         "choices": {
+          "fix": "bug-fix-plan",
+          "finish": "archive",
           "retry": "test",
           "redeploy": "deploy",
           "stop": null
         }
+      }
+    },
+    {
+      "name": "bug-fix-plan",
+      "skill": "TBD",
+      "executionMode": "fork",
+      "params": {
+        "context": ""
       }
     },
     {
