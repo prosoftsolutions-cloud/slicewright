@@ -35,6 +35,7 @@ Never ask the user anything.
 
 - `<activeSlicePath>/spec.md`: what to build. If it doesn't exist, return `NO_SPEC`.
 - `<activeSlicePath>/design.md`: how to build it. If it doesn't exist, return `NO_DESIGN`. It may still have open questions: plan for the recommended answer the design applies, and name the question in each task that depends on it. Follow the review notes in it that concern the plan.
+- `<activeSlicePath>/implement.md`, when it exists: implementation already started, and the tasks ticked in `plan.md` are done and committed. Their work is in the code now. Plan only the work that is left, against the code as it is.
 - The project instructions (`CLAUDE.md`, `AGENTS.md`) and the code in the design's affected areas: enough to divide the work, to know which files and modules exist, and to find the commands that build and test each area. The task agents read the details.
 
 ## 2. Draft the skeleton
@@ -48,6 +49,7 @@ Divide the work and fix how the pieces connect. The skeleton holds what every ta
 5. **Depend on code, not on shapes.** A task depends on another only when it needs that task's code to build or to pass its Verify. When it needs only a shape, the shape is in its Interfaces, and it doesn't depend. When the build needs a shape as code, such as a shared type, an interface, a generated client or a new library in a shared dependency file, put that code in a small task of its own early on, so the larger tasks don't wait for each other.
 6. **No shared files at the same time.** Tasks that may run at the same time never change the same file. A file that several tasks would change, such as a route table, a registration of services or a dependency file, belongs to one task; the others say in their Interfaces what they expect to find there.
 7. **Full coverage, nothing extra.** Every requirement is covered by a task, and every acceptance criterion is proved by the Verify section of at least one task: a command or check that shows it holds. No task does work that the spec and design don't call for.
+8. **Checks need nothing deployed.** Every command in a Verify section and in the final check runs on this machine, with nothing deployed and no external environment: builds, unit tests, tests against the application started locally, static checks. A task's Verify runs only that task's own tests, never a whole suite, because other tasks change other files at the same time. Write each command as one simple command, with no `cd`, chaining, pipes or loops: implement runs them under the project's permission rules, which refuse compound commands. A task may write tests that need a deployed environment; it then only builds and lints them, and plan.md lists them under Deployed checks for a later stage.
 
 Then group the tasks into waves: wave 1 holds the tasks with no dependencies, and each later wave the tasks whose dependencies are all in earlier waves. Fewer waves are better.
 
@@ -86,6 +88,9 @@ Changes: each file to create or change, and in it each class, function or method
   details to the worker.
 Verify: the exact commands that build and test the task's changes, and what each
   must show; for each acceptance criterion the task covers, the check that proves it.
+  They need nothing deployed and no external environment, they run only this
+  task's own tests, never a whole suite, and each is one simple command, with no
+  cd, chaining, pipes or loops.
 Boundaries: the files and behavior the task must leave alone.
 Conflicts: each place where the skeleton doesn't fit the code: an interface that
   can't be provided or used as written, a file that is missing or elsewhere, a
@@ -110,12 +115,12 @@ Then check that the pieces fit, and fix the plan in place:
 - a task a worker couldn't finish from its own file, because it relies on another task's file or on the spec or design without copying what it needs
 - tasks in the same wave that change the same file
 - a dependency missing, pointing forward, forming a cycle, or needing only a shape
-- a task whose Verify section doesn't prove it's done
+- a task whose Verify section doesn't prove it's done, or a check in it or in the final check that needs something deployed or runs a whole suite inside a task
 - a task for work the spec and design don't call for
 
 ## 5. Write the files
 
-Replace any task files in `<activeSlicePath>/tasks/` from an earlier run: a new plan supersedes the old one. Write each file with the Write tool. If a write fails, return `WRITE_FAILED`.
+A new plan supersedes the old one: replace the task files in `<activeSlicePath>/tasks/` from an earlier run. When implementation already started, keep the files of the ticked tasks and their ticked lines in plan.md, replace the rest, and number the new tasks after the last ticked one. Write each file with the Write tool. If a write fails, return `WRITE_FAILED`.
 
 Write one file per task, `<activeSlicePath>/tasks/T01-<short-kebab-title>.md`, numbering the tasks in wave order:
 
@@ -189,9 +194,13 @@ waves: {number of waves}
 
 ## Final check
 
-{The commands that prove the merged result of all tasks works, run after the last wave, and what each must show: the full build, the full test suite, and the checks for the acceptance criteria that span several tasks.}
+{The commands that prove the merged result of all tasks works, run after the last wave, and what each must show: the full build, the full test suite, a start of the application when the change affects how it starts, and the checks for the acceptance criteria that span several tasks. All of them need nothing deployed.}
 
 - `{command}`: {what it must show}
+
+## Deployed checks
+
+- `{test or command}`: {what it proves, such as an acceptance criterion} · written by {task id}
 
 ## Coverage
 
@@ -209,7 +218,7 @@ waves: {number of waves}
 - **Q1** {the answer the plan assumes} → affects {task ids}
 ```
 
-Leave out Plan decisions when there are none, and Assumed answers when the design has no open questions.
+Leave out Deployed checks and Plan decisions when there are none, and Assumed answers when the design has no open questions. Waves list only the tasks still to do.
 
 ## 6. Review
 
@@ -249,8 +258,9 @@ Check:
 - Conflicts: tasks in the same wave that change the same file
 - Dependencies: a task that needs another's code without depending on it, a
   dependency that needs only a shape and makes a task wait for nothing, or a cycle
-- Verification: a task whose Verify section doesn't prove it's done, or a final
-  check that doesn't prove the merged result works
+- Verification: a task whose Verify section doesn't prove it's done, a final
+  check that doesn't prove the merged result works, or a check in either that
+  needs something deployed
 - Scope: a task for work the spec and design don't call for
 - Size: a task too big for one worker session, or tasks so small they only make
   sense together

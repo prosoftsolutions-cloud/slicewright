@@ -32,10 +32,17 @@ If `.slicewright/config.json` doesn't exist, read `${CLAUDE_PLUGIN_ROOT}/default
    - `Skill(slice:run)`, `Skill(slice:tracking)` and `Bash(date:*)`, which the pipeline runner uses
 
    Leave out the tools a stage's context mentions, such as git or a ticket CLI: the user approves those when they are first used. Leave out reads of the plugin's own files: their path changes when the plugin updates.
+
+   When a stage's skill is `slice:implement`, it runs commands on its own for a long time, so also propose rules for them, as `Bash(<command prefix>:*)`:
+   - the project's build, test and quality tool commands, taken from the contexts of the stage's `qualityGateAgents`, the CI configuration and the project instructions
+   - the version control commands it uses: for git, `git status`, `git diff`, `git add`, `git commit`, `git restore`, `git rev-parse`, and with `isolation: worktree` also `git worktree`, `git branch` and `cp`
+
+   Show these proposed rules and ask the user which to add, and wait for the answer. Add only those.
+   With `isolation: worktree` and git, also set `worktree.baseRef` to `"head"` in the settings file, so each worker's copy starts from the slice's latest commit.
 3. Choose the settings file. If `.claude/settings.json` or `.claude/settings.local.json` already allows `Skill(slice:run)`, use that file. Otherwise ask the user which one to use, and wait for the answer:
    - `.claude/settings.json`: shared with the team and committed, like `.slicewright/config.json`
    - `.claude/settings.local.json`: only for this user, not committed
-4. Add each missing rule to `permissions.allow` in that file, creating the file or the key when needed. Never remove, reorder or change anything else in it.
+4. Add each missing rule to `permissions.allow` in that file, and `worktree.baseRef` when step 2 calls for it, creating the file or the keys when needed. Never remove, reorder or change anything else in it.
 
 ## 4. Report
 

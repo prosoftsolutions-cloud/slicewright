@@ -2,7 +2,7 @@
 name: run
 description: Internal Slicewright pipeline runner. Called by /slice:new and /slice:resume, never on its own.
 user-invocable: false
-allowed-tools: Read(/${CLAUDE_PLUGIN_ROOT}/defaults.json) Read(~/.slicewright/**) Bash(date:*) Skill(slice:intake) Skill(slice:clarify) Skill(slice:design) Skill(slice:plan) Skill(slice:human) Skill(slice:route) Skill(slice:tracking)
+allowed-tools: Read(/${CLAUDE_PLUGIN_ROOT}/defaults.json) Read(~/.slicewright/**) Bash(date:*) Skill(slice:intake) Skill(slice:clarify) Skill(slice:design) Skill(slice:plan) Skill(slice:implement) Skill(slice:human) Skill(slice:route) Skill(slice:tracking)
 ---
 
 # Run the pipeline
@@ -31,7 +31,7 @@ Say which files you loaded. Merge them: objects merge key by key, at any depth, 
 The configuration has two keys:
 
 - `sharedParams`: params every stage receives
-- `pipeline`: the stages, in order. A stage has `name`, `skill`, `executionMode`, `agent` (the subagent type for `fork`), `args` (the exact argument text for a skill that has its own syntax), `next` (the stage to go to after this one, instead of the following one) and `params` (the stage's own params).
+- `pipeline`: the stages, in order. A stage has `name`, `skill`, `executionMode`, `agent` (the subagent type for `fork`), `args` (the exact argument text for a skill that has its own syntax), `next` (the stage to go to after this one, instead of the following one), `onError` (the stage to go to when this one fails, instead of stopping) and `params` (the stage's own params).
 
 You use only these keys. From the params you use only `activeSlicePath` in `sharedParams`, `context`, and every `skill` key at any depth, which always names a skill that the stage may invoke. Everything else in the params is for the stages. Below, `<activeSlicePath>` means `sharedParams.activeSlicePath`.
 
@@ -47,7 +47,7 @@ Check the whole pipeline before running anything. If any of these is wrong, list
 - a stage has neither a `skill` nor a `context` in its `params`
 - a stage's `args` is not text, or a stage has `args` without a `skill`
 - a stage's `params` sets `activeSlicePath`: every stage must use the folder you track
-- a stage's `next` doesn't name a stage in `pipeline`
+- a stage's `next` or `onError` doesn't name a stage in `pipeline`
 - a stage's `skill` is neither `TBD` nor one of the skills you can invoke
 - a `skill` key anywhere in `sharedParams` or a stage's `params` doesn't name one of the skills you can invoke
 
@@ -72,7 +72,8 @@ For each skill the run will use, look for `Skill(<name>)` in `permissions.allow`
 
 1. If `<activeSlicePath>/status.md` doesn't exist, there is nothing to resume. Say that `/slice:new` starts a slice, and stop. If `input.md` exists without it, add that the slice never finished starting and `/slice:new` will offer to start over.
 2. Read `stage`, `status` and `next` from the header of `status.md`:
-   - `status` is `failed` or `running`: that stage failed or was interrupted, so start with it again.
+   - `status` is `failed` and `next` names a stage: the failed stage's `onError` stage hadn't started yet, so start with that stage.
+   - `status` is `failed` with an empty `next`, or `running`: that stage failed or was interrupted, so start with it again.
    - `status` is `done` and `next` names a stage: start with that stage.
    - `status` is `done` and `next` is empty: the slice has been through the whole pipeline. Say so and stop.
 
@@ -160,7 +161,7 @@ In the Artifact column, write the result's `files` as names relative to `<active
 - **`ok` for the first stage of a new slice**, when `status.md` doesn't exist yet: invoke `slice:tracking` with `create <activeSlicePath> <stage> started=<start time>`, adding `title`, `id` and `source` from the result when it has them, and `config=<file name>` when it isn't `config.json`. Then invoke it with `finish <activeSlicePath> <stage> done <files> next=<next stage>`.
 - **`ok` for any other stage:** invoke `slice:tracking` with `finish <activeSlicePath> <stage> done <files> next=<next stage>`.
 - **`skipped`:** invoke `slice:tracking` with `finish <activeSlicePath> <stage> skipped next=<next stage>`, and tell the user why the stage was skipped.
-- **`error`:** if `status.md` exists, invoke `slice:tracking` with `finish <activeSlicePath> <stage> failed`. Show the message and the fix, and stop.
+- **`error`:** if `status.md` exists, invoke `slice:tracking` with `finish <activeSlicePath> <stage> failed <files> reason="<code>: <message>"`, adding `next=<onError stage>` when the stage has `onError`. Show the code, the message and the fix. Then, when the stage has `onError`, say that the run goes on with that stage and go on with it; otherwise stop.
 
 Then:
 

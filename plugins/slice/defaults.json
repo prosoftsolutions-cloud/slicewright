@@ -7,31 +7,31 @@
         "description": "infrastructure as code, environments, pipelines and deployment configuration",
         "executionMode": "fork",
         "agent": "general-purpose",
-        "context": "You are an infrastructure engineer. Find out from the project's documentation and code which tools manage its infrastructure and how it is deployed, and follow their layout and naming. Deploying is a later stage's job: check every change with the tool's own validation, plan or dry run."
+        "context": "You are an infrastructure engineer. Find out from the project's documentation and code which tools manage its infrastructure, and follow their layout and naming. Check every change offline, with the tool's own synthesis, validation and lint, never against a real account or environment: deploying is a later stage's job."
       },
       "dataStorage": {
         "description": "database schemas, migrations, and the code that reads and writes stored data",
         "executionMode": "fork",
         "agent": "general-purpose",
-        "context": "You are a data engineer. Follow the project's migration tool, layout and naming. Every schema change is a migration that keeps existing data and can be rolled back. Cover data access code with tests against the project's test database or its usual stand-in."
+        "context": "You are a data engineer. Follow the project's migration tool, layout and naming. Every schema change is a migration that keeps existing data and can be rolled back. Write the tests first and see them fail, then make them pass. Test data access against an in-memory or local stand-in database, never a shared or deployed one."
       },
       "backend": {
         "description": "server-side code and the API it exposes",
         "executionMode": "fork",
         "agent": "general-purpose",
-        "context": "You are a backend engineer. Follow the existing layering, validation, error handling and naming. Build the API exactly as its interface says. Cover every change with unit tests, and build and test with the project's own commands."
+        "context": "You are a backend engineer. Follow the existing layering, validation, error handling and naming. Build the API exactly as its interface says. Write the tests first and see them fail, then make them pass. Fake external services and storage the way the existing tests do. Build and test with the project's own commands."
       },
       "frontend": {
         "description": "user interface code and its calls to the API",
         "executionMode": "fork",
         "agent": "general-purpose",
-        "context": "You are a frontend engineer. Reuse the existing components, styles and state handling. Call the API only as its interface says, and fake it in tests. Cover every change with the project's component or unit tests, and run its lint and build."
+        "context": "You are a frontend engineer. Reuse the existing components, styles and state handling. Call the API only as its interface says. Write the tests first and see them fail, then make them pass, faking the API. Run the project's lint and build."
       },
       "e2eTests": {
         "description": "end-to-end tests that exercise the output of several tasks together, from the acceptance criteria",
         "executionMode": "fork",
         "agent": "general-purpose",
-        "context": "You are a test engineer. Use the project's end-to-end test setup and layout. Each test proves an acceptance criterion through the real interfaces, the way a user or client would, without faking the code this slice changes."
+        "context": "You are a test engineer. Use the project's end-to-end test setup and layout. Each test proves an acceptance criterion through the real interfaces, the way a user or client would, without faking the code this slice changes. Run the tests that work against the application started on this machine; tests that need a deployed environment are written ready for the test stage, and only built and linted here."
       },
       "documentation": {
         "description": "documentation that has no build or test step",
@@ -70,7 +70,10 @@
       "skill": "slice:human",
       "executionMode": "inline",
       "params": {
-        "files": ["spec.md", "input.md"],
+        "files": [
+          "spec.md",
+          "input.md"
+        ],
         "context": "Present spec.md for approval, with a short summary of clarify's latest entry in design-reviews.md: issues fixed, issues rejected and why, and reviews that didn't run. Walk the user through its open questions, then ask them to confirm the assumptions. Apply each answer to the requirements and acceptance criteria it affects, keep the spec's format, remove a question from Open questions once it is answered, and remove that section when it is empty. The user decides whether to approve the spec. When approved, append a '## Session summary' section to input.md, replacing an earlier one and never changing the text above it: the decisions, each question with its answer, the assumptions the user confirmed, anything still open, and a last line 'See spec: spec.md'."
       }
     },
@@ -116,7 +119,9 @@
       "skill": "slice:human",
       "executionMode": "inline",
       "params": {
-        "files": ["design.md"],
+        "files": [
+          "design.md"
+        ],
         "context": "Present design.md and plan.md for approval: first the open questions in design.md, then the key decisions and risks, then the tasks, the waves they run in, the final check and the plan decisions, then a short summary of the latest design and plan entries in design-reviews.md: issues fixed, issues rejected and why, and reviews that didn't run. Record each answer in design.md: apply it to the decisions it affects, and remove the question once answered. Write what the user wants changed in the design or the plan under '## Review notes' in design.md, replacing that section from an earlier review. Never edit plan.md or the task files. Then the user chooses: approve when the design and the plan are right, re-plan when only the plan must change, re-design when the design itself must change.",
         "choices": {
           "approve": "implement",
@@ -127,10 +132,41 @@
     },
     {
       "name": "implement",
-      "skill": "TBD",
+      "skill": "slice:implement",
       "executionMode": "fork",
+      "next": "review",
+      "onError": "implement-decision",
       "params": {
-        "context": ""
+        "context": "",
+        "isolation": "none",
+        "maxParallel": 0,
+        "fixRounds": 2,
+        "qualityGateAgents": [
+          {
+            "name": "build and tests",
+            "executionMode": "fork",
+            "agent": "general-purpose",
+            "context": "Build the project in release configuration, run every test that needs nothing deployed and no external environment, and run the project's quality tools, such as linters, analyzers and formatters in check mode."
+          }
+        ],
+        "reviewAgents": []
+      }
+    },
+    {
+      "name": "implement-decision",
+      "skill": "slice:human",
+      "executionMode": "inline",
+      "params": {
+        "files": [
+          "design.md"
+        ],
+        "context": "Present why implement stopped, from the latest run in implement.md: a failed baseline or check with its diagnosis, the tasks that failed or were blocked with their reports, and the fixes already tried. Say what is already committed and where the unfinished work is: files left changed in the working tree, or a kept copy of the code. Then the user chooses: retry once the cause is fixed, for example after fixing the development environment or the code by hand; re-plan when tasks must change; re-design when the design itself must change; stop to end the run. For re-plan or re-design, write what must change under '## Review notes' in design.md, replacing that section from an earlier review.",
+        "choices": {
+          "retry": "implement",
+          "re-plan": "plan",
+          "re-design": "design",
+          "stop": null
+        }
       }
     },
     {
