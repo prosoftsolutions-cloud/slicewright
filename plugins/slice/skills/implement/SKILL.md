@@ -1,6 +1,6 @@
 ---
 name: implement
-description: Internal Slicewright implement stage. Carries out plan.md wave by wave, one worker per task using the task type's agent, verifies and commits every task itself, and runs the stage's quality gate agents before the first wave, between waves, and as a final gate after the last change. Run by the Slicewright pipeline, never on its own.
+description: Internal Slicewright implement stage. Carries out a plan file wave by wave, one worker per task using the task type's agent, verifies and commits every task itself, and runs the stage's quality gate agents before the first wave, between waves, and as a final gate after the last change. Run by the Slicewright pipeline, never on its own.
 user-invocable: false
 ---
 
@@ -15,6 +15,7 @@ Arguments: $ARGUMENTS
 The arguments are a JSON object. This stage uses:
 
 - `activeSlicePath`: the folder for the slice in progress
+- `plan`: the plan file to carry out, in `activeSlicePath`; `plan.md` when missing
 - `taskTypes`: the kinds of task, as an object mapping each type's name to an entry with `description`, `executionMode` (`fork` runs the type's agent as a subagent; `inline` means you do the task yourself), `skill` or `agent` (for `fork`, the skill the subagent invokes, or else the subagent type, `general-purpose` when neither is given) and `context` (the expertise for this type). It may be missing.
 - `qualityGateAgents`: the gates that decide whether the project is workable, in the order they run. When missing, use one `general-purpose` gate that builds the project and runs its tests as the CI configuration and the project instructions describe. An empty list means no gate.
 - `reviewAgents`: agents that review a task's change before it is committed. Missing or empty means no task review.
@@ -37,10 +38,10 @@ Your own part: you coordinate and check. Never change the project's code yoursel
 
 ## 1. Read the slice and the project
 
-1. `<activeSlicePath>/plan.md`: the tasks, their waves and the final check. If it doesn't exist, return `NO_PLAN`. A ticked task is done; the unticked ones are still to do.
+1. **The plan file**, `<activeSlicePath>/<plan>`: the tasks, their waves and the final check. When `plan` has a `*`, it stands for a round number: take the highest-numbered matching file that still has unticked tasks, or, when none has, the highest-numbered one. If there is no such file, return `NO_PLAN`. A ticked task is done; the unticked ones are still to do. Below, "the plan file" means this file.
 2. `<activeSlicePath>/tasks/`: one file per task. Read the files of the unticked tasks.
 3. `<activeSlicePath>/implement.md`, when it exists: the record of earlier runs.
-4. **Version control.** Use what the context says; otherwise check for git with `git rev-parse --show-toplevel`. Note the current commit. Without version control, you make no commits and can't restore files, so say so in the record and the result.
+4. **Version control.** Use the one the context or the project instructions name, or else the one the project folder uses, always with its own commands. Note the current revision. Without version control, you make no commits and can't restore files, so say so in the record and the result.
 
 With `isolation: worktree`, the copies come from your tool for starting subagents (Agent) with its worktree isolation: git worktrees, or whatever the project's `WorktreeCreate` hook makes. Without git and without such a hook, return `ISOLATION_SETUP`.
 
@@ -82,7 +83,7 @@ Start this run's entry in implement.md, as in step 9. When every task is already
 
 ## 4. Run the waves
 
-Take the waves from plan.md in order, and in each the unticked tasks. Before starting a wave, write its tasks in implement.md as started.
+Take the waves from the plan file in order, and in each the unticked tasks. Before starting a wave, write its tasks in implement.md as started.
 
 Start a worker for every task of the wave, in groups of at most `maxParallel`: the agent of the task's type in `taskTypes`, or, for a task without a type or a type without an entry, a `general-purpose` subagent. Start the `fork` workers of a group at once, in parallel, with your tool for starting subagents (Agent), using worktree isolation when `isolation` is `worktree`. Do the tasks of `inline` types yourself after the subagents of the wave have finished, one at a time, following the same rules. Give each worker this prompt:
 
@@ -136,7 +137,7 @@ If a worker fails, or answers without the report, continue it once and ask only 
 
 When every worker of the wave has finished, check each task that reports `DONE`, in its copy with `worktree`, or else in the project folder:
 
-1. **Base**, for git worktrees only. The copy must start at the commit the project folder is on: compare `git -C <copy> rev-parse HEAD` with `git rev-parse HEAD`, run before the wave started. A copy that starts elsewhere misses the earlier waves: remove every copy of the wave and return `ISOLATION_SETUP`, saying that `worktree.baseRef` must be `"head"` in the Claude Code settings, which `/slice:configure` adds.
+1. **Base**, with `worktree` only. The copy must start at the revision the project folder was on before the wave started: compare the two with the version control's own command. A copy that starts elsewhere misses the earlier waves: remove every copy of the wave and return `ISOLATION_SETUP`. For git worktrees, say that `worktree.baseRef` must be `"head"` in the Claude Code settings, which `/slice:configure` adds; for copies made by the project's hook, that the hook must start them from the current revision.
 2. **Files.** List the files the task actually changed: with version control, from its status, which leaves out ignored files such as build output; without it, from the report. Every one must be a file the task lists. A lock file or other dependency file counts unless the task lists it. Files in `<activeSlicePath>` don't count.
 3. **Verify.** Run every command in the task's Verify section yourself, and compare what each shows with what the task says it must show. The worker's report is not proof.
 4. **Review**, when a review agent applies to the task. Start every review agent that applies at once, in parallel, with this prompt:
@@ -144,8 +145,10 @@ When every worker of the wave has finished, check each task that reports `DONE`,
    ````text
    You are reviewing one task's change before it is committed. Each task of the plan
    goes to a separate worker, so judge the change only against its own task.
+   {for an entry with a skill: Invoke the {skill} skill, and review with it.}
 
-   Focus: {the entry's context; leave this line out when it is empty}
+   {the entry's context; when it is empty: Review the change for anything that would
+   make the result wrong or break another task.}
 
    The task:
 
@@ -153,16 +156,8 @@ When every worker of the wave has finished, check each task that reports `DONE`,
 
    The change: {the diff of the task's files, or their full content for new files}
 
-   Check:
-   - Interfaces: anything the task provides or uses that differs from what it says
-   - Scope: a change outside the task's files, or work the task doesn't call for
-   - Tests: a test that doesn't assert the behavior it names, or that needs something
-     deployed; a test weakened, skipped or deleted; a suppression or a loosened setting
-   - Correctness: a bug, a missed case the task names, an error that is swallowed
-   - Conventions: code that ignores a pattern the task or the nearby code sets
-
-   Flag only what would make the result wrong or break another task. Style is not an
-   issue. Approve unless something serious is wrong.
+   An issue is something that would make the result wrong or break another task.
+   Style is not an issue. Approve unless something serious is wrong.
 
    Answer in this form:
    Status: Approved | Issues found
@@ -178,10 +173,10 @@ A task reported `BLOCKED` or `ENVIRONMENT` gets no fix rounds.
 
 ## 6. Bring the wave together
 
-1. **Bring back** (`worktree` only). For each checked task, copy its changed files from its copy into the same paths in the project folder, and delete the files it deleted. Then remove the copy: for a git worktree, run `git worktree remove --force <path>` and `git branch -D <branch>`; for a copy made by the project's hook, do what the context says, or leave it and name it in the record. Keep the copy of a task that failed or was blocked, and record where it is.
+1. **Bring back** (`worktree` only). For each checked task, copy its changed files from its copy into the same paths in the project folder, and delete the files it deleted. Then remove the copy the way it was made: a git worktree together with its branch, or a copy made by the project's hook as the context says; when the context doesn't say, leave it and name it in the record. Keep the copy of a task that failed or was blocked, and record where it is.
 2. **Wave check.** In the project folder, run every checked task's Verify commands again, then run the quality gates, except after the last wave, where the final gate of step 8 runs them. When something fails, fix it as in step 7, then run the whole wave check again from its start.
-3. **Commit** each checked task: stage exactly its files by name, including deletions, never with `git add -A`, `git add .` or `git commit -a`, and commit them with the message `<task id> <title>`, unless the context gives another format. Never commit files in `<activeSlicePath>`. Without version control, skip this.
-4. **Tick** each committed task in plan.md, and record the wave in implement.md.
+3. **Commit** each checked task: commit exactly its files, named one by one, including deletions, never everything that changed at once, and commit them with the message `<task id> <title>`, unless the context gives another format. Never commit files in `<activeSlicePath>`. Without version control, skip this.
+4. **Tick** each committed task in the plan file, and record the wave in implement.md.
 
 When a task of the wave failed, was blocked, or hit the environment: still check, bring back and commit the tasks that passed, then stop. Skip the quality gates, because the failed task's work may be in the tree. Leave the failed task's files and copy as they are for a person, and return `TASK_BLOCKED`, `ENVIRONMENT` or `TASK_FAILED`, in that order of precedence.
 
@@ -192,7 +187,7 @@ A failing wave check or final gate is fixed by its cause:
 - **Environment:** a command fails because a tool, runtime or dependency is missing. Don't fix it: return `ENVIRONMENT`.
 - **Formatting and lint:** when the failing tool has its own fixer, such as a formatter's write mode, run it first.
 - **One task's:** the failure is in files or tests that belong to one task. Reopen it: send the failure to that task's worker, or start its type's agent again with the task, its report and the failure.
-- **Across tasks:** the failure is where tasks meet, such as one task's code calling another's. Start one `general-purpose` subagent with the failure and the files of every task involved. It may change only those files and must keep every interface as plan.md's tasks write it. If an interface must change, it reports `BLOCKED`, and you return `TASK_BLOCKED`.
+- **Across tasks:** the failure is where tasks meet, such as one task's code calling another's. Start one `general-purpose` subagent with the failure and the files of every task involved. It may change only those files and must keep every interface as the plan's tasks write it. If an interface must change, it reports `BLOCKED`, and you return `TASK_BLOCKED`.
 - **Outside every task:** fixing it needs a file no task lists. Don't fix it: return `CHECK_FAILED`, naming the file and the failure, so a person decides.
 
 Give every fixer the failure, the gates' contexts and the worker rules. Every fix follows the worker rules: never weaken, skip or delete a test, add suppressions, or loosen a tool's settings. When a fixer reports that a test is wrong rather than the code, don't change the test: stop with `CHECK_FAILED`, so a person decides.
@@ -204,10 +199,10 @@ After each fix, check the touched tasks as in step 5, then run the failing check
 After the last wave is committed, the slice must pass one complete run on its final state:
 
 1. With version control, check that nothing outside `<activeSlicePath>` is uncommitted.
-2. Run every command in plan.md's Final check yourself, and compare what each shows with what plan.md says it must show.
+2. Run every command in the plan file's Final check yourself, and compare what each shows with what the plan file says it must show.
 3. Run the quality gates.
 
-When anything fails, fix it as in step 7, commit the fixes, and start this step again from 1. A fix is never the last word: the slice is implemented only when one complete final gate run passes after the last change. Each attempt runs everything again, every Final check command and every gate, even those a fix couldn't have touched: never carry a result over from an earlier attempt, and record for each attempt only what it ran. Record the commit the passing attempt ran on.
+When anything fails, fix it as in step 7, commit the fixes, and start this step again from 1. A fix is never the last word: the slice is implemented only when one complete final gate run passes after the last change. Each attempt runs everything again, every Final check command and every gate, even those a fix couldn't have touched: never carry a result over from an earlier attempt, and record for each attempt only what it ran. Record the revision the passing attempt ran on.
 
 ## 9. The record
 
@@ -218,7 +213,7 @@ Keep `<activeSlicePath>/implement.md` with the Write or Edit tool, adding one en
 
 ## Run {n}, {time}
 
-- Isolation: {none | worktree}. Start commit: {commit, or "no version control"}
+- Plan: {the plan file}. Isolation: {none | worktree}. Start revision: {revision, or "no version control"}
 - Baseline: {passed | failed: each gate's failures}
 - Leftovers: {none, or each task: kept as its result | discarded}
 
@@ -226,7 +221,7 @@ Keep `<activeSlicePath>/implement.md` with the Write or Edit tool, adding one en
 
 - Started: {task ids}
 - **T01** {title}: {done | failed | blocked | environment}
-  - Commit: {commit, or "not committed"}
+  - Commit: {revision, or "not committed"}
   - Files: {files}
   - Verify: {each command: passed | failed}
   - Review: {each reviewer: approved | issue → fixed | rejected: why}
@@ -238,7 +233,7 @@ Keep `<activeSlicePath>/implement.md` with the Write or Edit tool, adding one en
 
 ### Final gate
 
-- Attempt {n}: {passed on commit <commit> | failed: gate or command → cause → fix, commit}
+- Attempt {n}: {passed on revision <revision> | failed: gate or command → cause → fix, its revision}
   - Final check: {each command: passed | failed}
   - {gate name}: {passed | failed}
 
@@ -255,8 +250,8 @@ End with the result, with nothing after it.
 
 ```text
 result: ok
-message: <one sentence: the tasks done in how many waves, the fixes made, and the commit the final gate passed on>
-files: <activeSlicePath>/implement.md, <activeSlicePath>/plan.md
+message: <one sentence: the tasks done in how many waves, the fixes made, and the revision the final gate passed on>
+files: <activeSlicePath>/implement.md, <activeSlicePath>/<the plan file>
 ```
 
 On failure, end with this instead:
@@ -266,5 +261,5 @@ result: error
 code: <NO_PLAN | ISOLATION_SETUP | LEFTOVERS | DIRTY_TREE | BASELINE_FAILED | ENVIRONMENT | TASK_BLOCKED | TASK_FAILED | CHECK_FAILED | WRITE_FAILED>
 message: <one sentence saying what is wrong, naming the tasks, gates or commands>
 fix: <what the person should do, such as fixing the environment, finishing a task by hand, re-planning or re-designing>
-files: <activeSlicePath>/implement.md, <activeSlicePath>/plan.md, or none
+files: <activeSlicePath>/implement.md, <activeSlicePath>/<the plan file>, or none
 ```

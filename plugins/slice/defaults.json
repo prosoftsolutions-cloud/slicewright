@@ -59,7 +59,7 @@
         "reviewAgents": [
           {
             "agent": "general-purpose",
-            "context": "",
+            "context": "Check the spec for: placeholders, TODO, TBD, empty sections, or a requirement without an acceptance criterion; sections that contradict each other, or a declared scope that doesn't cover the requirements, or requirements outside it; a requirement or criterion that could be built two different ways; an acceptance criterion that no test or reviewer could check; more than one slice of work, meaning independent pieces that should be split; features or options the goal doesn't need; a question with no recommended answer, or a decision hidden in the requirements that should be an open question.",
             "executionMode": "fork"
           }
         ]
@@ -93,7 +93,7 @@
         "reviewAgents": [
           {
             "agent": "general-purpose",
-            "context": "",
+            "context": "Check the design against the spec for: a requirement or acceptance criterion it doesn't address; work the spec doesn't ask for, or anything that contradicts the spec; a significant choice made without a reason or without alternatives; a shape two parts could read differently, or parts that depend on each other with no contract between them; a destructive or irreversible change, or a security or data concern, without a mitigation; an approach more complex than the requirements need; a question that would change the approach but isn't marked as blocking, or one without a recommended answer.",
             "executionMode": "fork"
           }
         ]
@@ -108,7 +108,7 @@
         "reviewAgents": [
           {
             "agent": "general-purpose",
-            "context": "",
+            "context": "Check the plan for: a requirement no task covers, or an acceptance criterion no Verify section proves; a Uses entry that doesn't match the Provides it relies on exactly, a name that differs between tasks, or pieces that would build alone but not together; an existing file, class or method a task names wrongly; a task a worker couldn't finish from its own file, because it relies on another task's file or on the spec or design without copying what it needs; tasks in the same wave that change the same file; a task that needs another's code without depending on it, a dependency that needs only a shape and makes a task wait for nothing, or a cycle; a task whose Verify section doesn't prove it's done, a final check that doesn't prove the merged result works, or a check in either that needs something deployed; a task for work the spec and design don't call for; a task too big for one worker session, or tasks so small they only make sense together.",
             "executionMode": "fork"
           }
         ]
@@ -171,26 +171,148 @@
     },
     {
       "name": "review",
-      "skill": "TBD",
+      "skill": "slice:review",
       "executionMode": "fork",
       "params": {
-        "context": ""
+        "context": "",
+        "record": "code-reviews.md",
+        "reviewAgents": [
+          {
+            "name": "spec",
+            "agent": "general-purpose",
+            "executionMode": "fork",
+            "context": "Completeness and coherence against the spec and the design. Go through every requirement and acceptance criterion one at a time, and find where the code, the tests and the documentation deliver it exactly as written; any that isn't is a finding. Then check that every decision and contract is followed, and that nothing was built that the spec doesn't ask for."
+          },
+          {
+            "name": "code",
+            "agent": "general-purpose",
+            "executionMode": "fork",
+            "context": "Check the changed code for: a bug or a missed case; an error that is swallowed; a contract between parts that is broken; input that isn't validated; data that can be lost or exposed; code that ignores the project's conventions."
+          },
+          {
+            "name": "tests",
+            "agent": "general-purpose",
+            "executionMode": "fork",
+            "context": "Check the tests of the change for: a test that doesn't assert the behavior it names; changed behavior with no test; a test weakened, skipped or deleted; a test that needs something deployed."
+          },
+          {
+            "name": "docs",
+            "agent": "general-purpose",
+            "executionMode": "fork",
+            "context": "Documentation against the code: in every document the change touches or the spec names, compare each endpoint, field, parameter, error message and example one by one with the code, and report each one that is missing, extra or different. Prove it with a command that shows both sides, such as a search of the docs and of the code."
+          }
+        ]
+      }
+    },
+    {
+      "name": "review-decision",
+      "skill": "slice:human",
+      "executionMode": "inline",
+      "next": "deploy",
+      "params": {
+        "files": [
+          "code-reviews.md",
+          "design.md"
+        ],
+        "context": "Skip this step when the latest round in code-reviews.md has no open blocking findings; advisory findings alone don't stop the run. Otherwise present the latest round: its scope and blast radius, and how they compare with the previous round. When neither the blast radius nor the number of open blocking findings shrank, say first that the review loop is not converging. Then present each blocking finding with its proof, its suggested fix and the blast radius of that fix, and then a short list of the advisory findings with why each is advisory. For each blocking finding the user decides: fix, accept with a reason, or defer with a reason, an owner and a date. Write each decision on the finding's Decision line in code-reviews.md, as 'fix', 'accepted: <why>' or 'deferred: <why>, <owner>, <date>'. The user may also pick advisory findings to fix: add ' · Decision: fix' to the end of each picked one's line; the others need no decision. Let the user answer for all findings in one message, such as 'fix R1-F1, R1-F3; ignore R1-F2'. Ignoring a blocking finding means accepting it: ask for the reason when it is missing. An advisory finding the user doesn't name stays as it is. Change nothing else in code-reviews.md. Then the user chooses: fix when any finding is to be fixed; ship when none is; re-plan or re-design when the findings show that the plan or the design is wrong, writing what must change under '## Review notes' in design.md and replacing that section from an earlier review; stop to end the run.",
+        "choices": {
+          "fix": "review-fix-plan",
+          "ship": "deploy",
+          "re-plan": "plan",
+          "re-design": "design",
+          "stop": null
+        }
+      }
+    },
+    {
+      "name": "review-fix-plan",
+      "skill": "slice:plan",
+      "executionMode": "fork",
+      "params": {
+        "context": "",
+        "findings": "code-reviews.md",
+        "plan": "review-round-*.md",
+        "sequential": true,
+        "reviewAgents": []
+      }
+    },
+    {
+      "name": "review-fix",
+      "skill": "slice:implement",
+      "executionMode": "fork",
+      "next": "review",
+      "onError": "review-fix-decision",
+      "params": {
+        "context": "",
+        "plan": "review-round-*.md",
+        "isolation": "none",
+        "maxParallel": 0,
+        "fixRounds": 2,
+        "qualityGateAgents": [
+          {
+            "name": "build and tests",
+            "executionMode": "fork",
+            "agent": "general-purpose",
+            "context": "Build the project in release configuration, run every test that needs nothing deployed and no external environment, and run the project's quality tools, such as linters, analyzers and formatters in check mode."
+          }
+        ],
+        "reviewAgents": []
+      }
+    },
+    {
+      "name": "review-fix-decision",
+      "skill": "slice:human",
+      "executionMode": "inline",
+      "params": {
+        "files": [
+          "design.md"
+        ],
+        "context": "Present why the fix round stopped, from the latest run in implement.md: a failed baseline or check with its diagnosis, the fix tasks that failed or were blocked with their reports, and the fixes already tried. Say what is already committed and where the unfinished work is. Then the user chooses: retry once the cause is fixed, for example after fixing the development environment or the code by hand; re-plan when the fix tasks must change, writing what must change under '## Review notes' in design.md and replacing that section from an earlier review; stop to end the run.",
+        "choices": {
+          "retry": "review-fix",
+          "re-plan": "review-fix-plan",
+          "stop": null
+        }
       }
     },
     {
       "name": "deploy",
-      "skill": "TBD",
-      "executionMode": "inline",
+      "skill": "slice:deploy",
+      "executionMode": "fork",
       "params": {
         "context": ""
       }
     },
     {
       "name": "test",
-      "skill": "TBD",
+      "skill": "slice:test",
       "executionMode": "fork",
+      "next": "archive",
+      "onError": "test-decision",
       "params": {
-        "context": ""
+        "context": "",
+        "record": "test-reports.md",
+        "testAgents": [
+          {
+            "name": "deployed",
+            "agent": "general-purpose",
+            "executionMode": "fork",
+            "context": "Run the project's tests that need a deployed environment, such as end-to-end and integration tests, as the CI configuration and the project's documentation describe, against the deployment given below."
+          }
+        ]
+      }
+    },
+    {
+      "name": "test-decision",
+      "skill": "slice:human",
+      "executionMode": "inline",
+      "params": {
+        "context": "Present why the test run stopped, from the latest run in test-reports.md: each suite that didn't start and why, and the results of the suites that ran. Then the user chooses: retry the tests once the cause is fixed, for example when the environment answers again; redeploy when the deployment is missing or outdated; stop to end the run.",
+        "choices": {
+          "retry": "test",
+          "redeploy": "deploy",
+          "stop": null
+        }
       }
     },
     {

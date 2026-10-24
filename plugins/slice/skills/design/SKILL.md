@@ -18,7 +18,7 @@ The arguments are a JSON object. This stage uses:
 - `docPath`: the project's knowledge folder, which may be missing
 - `context`: the project's rules for this stage, which may be missing, such as where its patterns are described, which documentation tools to use, and what a design must cover
 - `designAgents`: the agents that explore the code and propose the design. When missing, you design everything yourself.
-- `reviewAgents`: the agents that review the merged draft. When missing, use one general-purpose reviewer. When it is an empty list, skip the review.
+- `reviewAgents`: the agents that review the merged draft. When missing, use one general-purpose reviewer. When it is an empty list, skip the review. A reviewer's `context` is its review instructions: what to look for; empty means a general review.
 
 Each agent entry has:
 
@@ -164,15 +164,16 @@ Then check your draft and fix it in place:
 
 ## 5. Review
 
-This step is required unless `reviewAgents` is an empty list, and checking the draft yourself doesn't replace it. Start every `fork` review agent at once, in parallel, with your tool for starting subagents (Agent). Give each the prompt below, with the full spec and the full draft where it says `{SPEC}` and `{DESIGN}`, and its context where it says `{FOCUS}`. Leave out the Focus line when its context is empty. Take the role of each `inline` entry yourself.
+This step is required unless `reviewAgents` is an empty list, and checking the draft yourself doesn't replace it. Start every `fork` review agent at once, in parallel, with your tool for starting subagents (Agent). Give each the prompt below, with the full spec and the full draft where it says `{SPEC}` and `{DESIGN}`. Take the role of each `inline` entry yourself. The prompt carries only what this stage relies on: the documents and the answer form. What to review comes from each entry's context, or from its skill.
 
 ````text
 You are reviewing a technical design before a person approves it and it is broken
 into tasks. You haven't seen how it was produced, and that is the point: judge only
 what is written, against the spec.
+{for an entry with a skill: Invoke the {skill} skill, and review with it.}
 
-Focus: {FOCUS}. Review with this focus first, and also report any other serious
-problem you notice.
+{the entry's context; when it is empty: Review the design for anything that would
+lead the plan or the implementation wrong.}
 
 Spec:
 
@@ -182,20 +183,9 @@ Design:
 
 {DESIGN}
 
-Check:
-- Coverage: a requirement or acceptance criterion the design doesn't address
-- Scope: work the spec doesn't ask for, or anything that contradicts the spec
-- Decisions: a significant choice made without a reason or without alternatives
-- Contracts: a shape two parts could read differently, or parts that depend on
-  each other with no contract between them
-- Risks: a destructive or irreversible change, or a security or data concern,
-  without a mitigation
-- Simplicity: an approach more complex than the requirements need
-- Open questions: a question that would change the approach but isn't marked as
-  blocking, or one without a recommended answer
-
-Flag only what would lead the plan or the implementation wrong. Wording, style and
-uneven detail are not issues. Approve unless something serious is missing.
+An issue is something that would lead the plan or the implementation wrong.
+Wording, style and uneven detail are not issues; what would only improve the design
+is a recommendation. Approve unless something serious is missing.
 
 Answer in this form:
 Status: Approved | Issues found
@@ -212,7 +202,7 @@ Then handle what the reviewers report:
 - **Contradictions:** when reviewers disagree, decide with a reason, or make it an open question.
 - **Failures:** if a review agent fails, or answers without the form, start it once more. If it fails again, its review didn't run.
 
-Only when you have no tool for starting subagents, check the draft against the same list yourself, and record that the reviews didn't run.
+Only when you have no tool for starting subagents, review the draft yourself, following each entry's instructions, and record that the reviews didn't run.
 
 ## 6. Save and return
 

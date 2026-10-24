@@ -20,7 +20,7 @@ The arguments are a JSON object. This stage uses:
 - `reviewAgents`: the agents that review the draft. When missing, use one general-purpose reviewer. When it is an empty list, skip the review. Each entry has:
   - `executionMode`: `fork` runs it as a subagent; `inline` means you review yourself, following its context
   - `skill` or `agent`: for `fork`, the skill the subagent invokes, or else the subagent type, `general-purpose` when neither is given
-  - `context`: its focus; empty means the general review
+  - `context`: its review instructions: what to look for; empty means a general review
   - `name`: a label for the record, which may be missing
 
 Ignore any other key. The context is rules and pointers for you to follow. Never copy it into the spec or any other file.
@@ -115,33 +115,23 @@ Then check your draft and fix it in place:
 
 ## 5. Review
 
-This step is required unless `reviewAgents` is an empty list, and checking the draft yourself doesn't replace it. Start every `fork` review agent at once, in parallel, with your tool for starting subagents (Agent). Give each the prompt below, with the full draft where it says `{SPEC}` and its context where it says `{FOCUS}`. Leave out the Focus line when its context is empty. Take the role of each `inline` entry yourself.
+This step is required unless `reviewAgents` is an empty list, and checking the draft yourself doesn't replace it. Start every `fork` review agent at once, in parallel, with your tool for starting subagents (Agent). Give each the prompt below, with the full draft where it says `{SPEC}`. Take the role of each `inline` entry yourself. The prompt carries only what this stage relies on: the draft and the answer form. What to review comes from each entry's context, or from its skill.
 
 ````text
 You are reviewing a feature spec before a person approves it for design. You
 haven't seen how it was produced, and that is the point: judge only what is written.
+{for an entry with a skill: Invoke the {skill} skill, and review with it.}
 
-Focus: {FOCUS}. Review with this focus first, and also report any other serious
-problem you notice.
+{the entry's context; when it is empty: Review the spec for anything that would
+lead the design wrong.}
 
 Spec:
 
 {SPEC}
 
-Check:
-- Completeness: placeholders, TODO, TBD, empty sections, a requirement without
-  an acceptance criterion
-- Consistency: sections that contradict each other; a declared scope that doesn't
-  cover the requirements, or requirements outside it
-- Clarity: a requirement or criterion that could be built two different ways
-- Testability: an acceptance criterion that no test or reviewer could check
-- Size: more than one slice of work, meaning independent pieces that should be split
-- Extras: features or options the goal doesn't need
-- Open questions: a question with no recommended answer, or a decision hidden in
-  the requirements that should be an open question
-
-Flag only what would lead the design wrong. Wording, style and uneven detail are
-not issues. Approve unless something serious is missing.
+An issue is something that would lead the design wrong. Wording, style and uneven
+detail are not issues; what would only improve the spec is a recommendation.
+Approve unless something serious is missing.
 
 Answer in this form:
 Status: Approved | Issues found
@@ -151,7 +141,7 @@ Recommendations (optional, they don't block approval):
 - ...
 ````
 
-The reviewer prompt is adapted from the spec reviewer in Superpowers (MIT).
+The default reviewer's checklist, in the plugin's `defaults.json`, is adapted from the spec reviewer in Superpowers (MIT).
 
 Then handle what the reviewers report:
 
@@ -160,7 +150,7 @@ Then handle what the reviewers report:
 - **Contradictions:** when reviewers disagree, decide with a reason, or make it an open question.
 - **Failures:** if a review agent fails, or answers without the form, start it once more. If it fails again, its review didn't run.
 
-Only when you have no tool for starting subagents, check the draft against the same list yourself, and record that the reviews didn't run.
+Only when you have no tool for starting subagents, review the draft yourself, following each entry's instructions, and record that the reviews didn't run.
 
 ## 6. Save and return
 
