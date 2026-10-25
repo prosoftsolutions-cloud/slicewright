@@ -54,7 +54,10 @@ run() {
 
 run 'greet.sh --shout Ada' 'HELLO, ADA!' '' 0 --shout Ada
 run 'greet.sh --shout' 'HELLO, WORLD!' '' 0 --shout
+run "greet.sh --shout ''" 'HELLO, WORLD!' '' 0 --shout ''
 run 'greet.sh --shout Ada Bob' '' 'greet: too many arguments' 2 --shout Ada Bob
+run 'greet.sh Ada --shout' '' 'greet: too many arguments' 2 Ada --shout
+run 'greet.sh --shout -x' '' 'greet: unknown option: -x' 2 --shout -x
 run 'greet.sh Ada' 'Hello, Ada!' '' 0 Ada
 run 'greet.sh -x' '' 'greet: unknown option: -x' 2 -x
 run 'greet.sh --shout ada-lovelace_42' 'HELLO, ADA-LOVELACE_42!' '' 0 --shout ada-lovelace_42
