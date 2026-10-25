@@ -1,7 +1,16 @@
 {
   "sharedParams": {
     "activeSlicePath": "./slice",
-    "docPath": "./doc",
+    "knowledge": {
+      "publishTo": "docs",
+      "sources": [
+        {
+          "name": "docs",
+          "path": "./doc",
+          "context": "An OKF bundle: Markdown pages, one subject each, with YAML frontmatter that has at least a `type`; an `index.md` in every folder lists its pages, and `log.md` at the root lists the consolidated slices, newest first. `overview/` describes the product, its technology and how the code is organized: read it first. `product/spec/` is what the system does now, one page per capability, each with its known limitations. `product/guides/` is the documentation for users: tutorials, how-to guides, reference and explanation. `architecture/` follows arc42: `context.md` the system and its neighbors, `building-blocks.md` its parts and their interfaces, `runtime.md` its key flows, `deployment.md` its environments and infrastructure, `concepts.md` the rules that apply across the code, `decisions/` the numbered decision records, `risks.md` the risks and technical debt, and `glossary.md` the terms. Start at `index.md`, then read only the pages your work needs. Prefer pages marked `verified: true`; a page with `status: deprecated` or a `stale_after` date in the past is unreliable."
+        }
+      ]
+    },
     "taskTypes": {
       "infrastructure": {
         "description": "infrastructure as code, environments, pipelines and deployment configuration",
@@ -34,10 +43,10 @@
         "context": "You are a test engineer. Use the project's end-to-end test setup and layout. Each test proves an acceptance criterion through the real interfaces, the way a user or client would, without faking the code this slice changes. Run the tests that work against the application started on this machine; tests that need a deployed environment are written ready for the test stage, and only built and linted here."
       },
       "documentation": {
-        "description": "documentation that has no build or test step",
+        "description": "pages of the project's documentation, such as guides and reference for users, staged in the slice until it is consolidated",
         "executionMode": "fork",
         "agent": "general-purpose",
-        "context": "You are a technical writer. Document the changes according to the project's documentation rules, and keep every name, command and example consistent with the interfaces as built."
+        "context": "You are a technical writer. Follow the documentation's conventions and structure, and keep every name, command and example consistent with the interfaces as built."
       }
     }
   },
@@ -174,7 +183,7 @@
       "skill": "slice:review",
       "executionMode": "fork",
       "params": {
-        "context": "",
+        "context": "The code must also follow the cross-cutting rules in the documentation's `architecture/concepts.md`, when it exists.",
         "record": "code-reviews.md",
         "reviewAgents": [
           {
@@ -199,7 +208,7 @@
             "name": "docs",
             "agent": "general-purpose",
             "executionMode": "fork",
-            "context": "Documentation against the code: in every document the change touches or the spec names, compare each endpoint, field, parameter, error message and example one by one with the code, and report each one that is missing, extra or different. Prove it with a command that shows both sides, such as a search of the docs and of the code."
+            "context": "Documentation against the code: in every page the change touches, including the pages staged in the slice, and every page the spec names, compare each endpoint, field, parameter, error message and example one by one with the code, and report each one that is missing, extra or different. Prove it with a command that shows both sides, such as a search of the docs and of the code."
           }
         ]
       }
@@ -305,7 +314,7 @@
       "name": "test-decision",
       "skill": "slice:human",
       "executionMode": "inline",
-      "next": "archive",
+      "next": "consolidate",
       "params": {
         "files": [
           "test-reports.md"
@@ -313,7 +322,7 @@
         "context": "Skip this step when test-reports.md has no run, or when every suite of its latest run ran and no failed test in that run has an open decision; flaky and disabled tests alone don't stop the run. Otherwise, when bug-analyses.md exists, the slice is in a bug-fix loop: show first a table with one row per round in bug-analyses.md: the iteration, which is the round number; the test run it started from; the tests it was to fix; in the test run after it, the earlier fixes that still fail and the new failures; the causes it fixed and those it left open; and its fix blast radius. When the tests to fix, the fixes that still fail, the new failures or the blast radius grew from one iteration to the next, say first that the loop seems to be going the wrong way, and that the decision is the user's. Then present the latest run: the revision and the deployment it tested, its totals, its earlier fixes that still fail and its new failures, and each suite that didn't start, with why. Then present each failed test with an open decision, with its output; then the failed tests already accepted or deferred, with that decision; then a short list of the flaky and disabled tests. Present the results as recorded: analyzing a failure is a later stage's job. For each failed test with an open decision the user decides: fix, accept with a reason, or defer with a reason, an owner and a date. Ask for a note on each test to fix: what the user has seen or suspects, such as when it started or which data triggers it. A note is optional, and the analysis treats it as a lead; a note that says what the right behavior is counts as part of the bar for its test. When a test picked to fix had its cause left open in an earlier round of bug-analyses.md because the bar doesn't say what is right, ask the user to say what is right in its note. Write each decision on the test's Decision line in test-reports.md, as 'fix', 'fix: <note>', 'accepted: <why>' or 'deferred: <why>, <owner>, <date>'. The user may also pick flaky or disabled tests to fix: add ' · Decision: fix' to the end of each picked one's line, or ' · Decision: fix: <note>'; the others need no decision. Let the user answer for all tests in one message, such as 'fix TR1-1: only with long titles, TR1-3; ignore TR1-2'. Ignoring a failed test means accepting it: ask for the reason when it is missing. A flaky or disabled test the user doesn't name stays as it is. Change nothing else in test-reports.md. Then the user chooses: fix when any test is to be fixed; finish when none is; retry the tests once the cause is fixed, when a suite didn't start or the environment misbehaved; redeploy when the deployment is missing or outdated; stop to end the run.",
         "choices": {
           "fix": "bug-analysis",
-          "finish": "archive",
+          "finish": "consolidate",
           "retry": "test",
           "redeploy": "deploy",
           "stop": null
@@ -339,6 +348,14 @@
             "priority": 1,
             "readOnly": true,
             "context": "Read each failed test's output and artifacts, the test's code and the code it exercises, and the logs, traces and data the project's documentation says the deployment keeps, for the run's window. Follow each failure back from where it shows to where the wrong behavior starts."
+          },
+          {
+            "name": "history",
+            "agent": "general-purpose",
+            "executionMode": "fork",
+            "priority": 1,
+            "readOnly": true,
+            "context": "Search `.slicewright/slices/index.md` for earlier slices whose Areas, Pages or Root causes touch the code or the behavior under suspicion, and read the records they point to: bug-analyses.md for their root causes, and code-reviews.md and test-reports.md for what a person accepted or deferred. Report a cause that repeats an earlier one, naming the earlier cause and its slice, and a failing behavior that a person accepted on purpose, naming that decision. Report nothing when no earlier slice is related."
           },
           {
             "name": "red-green",
@@ -401,49 +418,73 @@
         "files": [
           "bug-analyses.md"
         ],
-        "context": "Present iteration n of the bug-fix loop, the latest round in bug-analyses.md. Show first a table with one row per round in bug-analyses.md: the iteration, which is the round number; the test run it started from; the tests it was to fix; in the test run after it, the earlier fixes that still fail and the new failures; the causes it fixed and those it left open; and its fix blast radius. When the tests to fix, the fixes that still fail, the new failures or the blast radius grew from one iteration to the next, say first that the loop seems to be going the wrong way, and that the decision is the user's. When a stage of this iteration stopped with an error, say next why, from the latest round in bug-analyses.md or the latest run in implement.md. Then present what the iteration fixed: each cause decided fix, with its tests, its level and its fix, and how the fix went in implement.md's latest run, naming any cause whose failing test passed before any change as not reproduced. Then present what it left for a person: each cause of the latest round decided open, with why and its evidence. Open causes of earlier rounds aren't decided here: to fix one, the user picks its test again in test-decision, with a note saying what is right. For each open cause of the latest round the user may decide: fix, saying what is right when the bar doesn't say, accept with a reason, or defer with a reason, an owner and a date. Write each decision on the cause's Decision line in bug-analyses.md, as 'fix: <what is right>', 'accepted: <why>' or 'deferred: <why>, <owner>, <date>', and change nothing else there; an open cause the user doesn't decide stays open. Then the user chooses: fix to plan and fix the causes just decided fix; redeploy to deploy the fixes and run the tests again; retest to run the tests without deploying, when only tests changed or the environment was fixed by hand; retry to run the fix again once the reason it stopped is fixed; reanalyze to run the analysis again, for example after it stopped or after new data became available; finish to go on to archive without more fixes; stop to end the run.",
+        "context": "Present iteration n of the bug-fix loop, the latest round in bug-analyses.md. Show first a table with one row per round in bug-analyses.md: the iteration, which is the round number; the test run it started from; the tests it was to fix; in the test run after it, the earlier fixes that still fail and the new failures; the causes it fixed and those it left open; and its fix blast radius. When the tests to fix, the fixes that still fail, the new failures or the blast radius grew from one iteration to the next, say first that the loop seems to be going the wrong way, and that the decision is the user's. When a stage of this iteration stopped with an error, say next why, from the latest round in bug-analyses.md or the latest run in implement.md. Then present what the iteration fixed: each cause decided fix, with its tests, its level and its fix, and how the fix went in implement.md's latest run, naming any cause whose failing test passed before any change as not reproduced. Then present what it left for a person: each cause of the latest round decided open, with why and its evidence. Open causes of earlier rounds aren't decided here: to fix one, the user picks its test again in test-decision, with a note saying what is right. For each open cause of the latest round the user may decide: fix, saying what is right when the bar doesn't say, accept with a reason, or defer with a reason, an owner and a date. Write each decision on the cause's Decision line in bug-analyses.md, as 'fix: <what is right>', 'accepted: <why>' or 'deferred: <why>, <owner>, <date>', and change nothing else there; an open cause the user doesn't decide stays open. Then the user chooses: fix to plan and fix the causes just decided fix; redeploy to deploy the fixes and run the tests again; retest to run the tests without deploying, when only tests changed or the environment was fixed by hand; retry to run the fix again once the reason it stopped is fixed; reanalyze to run the analysis again, for example after it stopped or after new data became available; finish to go on to consolidate without more fixes; stop to end the run.",
         "choices": {
           "fix": "bug-fix-plan",
           "redeploy": "deploy",
           "retest": "test",
           "retry": "bug-fix",
           "reanalyze": "bug-analysis",
-          "finish": "archive",
+          "finish": "consolidate",
           "stop": null
         }
       }
     },
     {
-      "name": "archive",
-      "skill": "slice:archive",
+      "name": "consolidate",
+      "skill": "slice:consolidate",
       "executionMode": "fork",
       "params": {
         "context": "",
-        "archivePath": "./doc/slices",
+        "archivePath": "./.slicewright/slices",
         "knowledgeAgents": [
           {
             "name": "spec",
             "agent": "general-purpose",
             "executionMode": "fork",
-            "context": "The living specification: merge the slice's spec.md into the project's specification of the system as it is now. Add its requirements and acceptance criteria to the area they belong to, change the ones the slice changed, and remove the ones it removed, so the specification describes the current behavior, not the change. Leave out the slice's own ids, open questions and assumptions."
+            "context": "The living specification in `product/spec/`: merge the slice's spec.md into the page of each capability it touches, and create the page of a new capability. Add its requirements and acceptance criteria, change the ones the slice changed, and remove the ones it removed, so each page describes how the system behaves now, not the change. Leave out the slice's own ids, open questions and assumptions. Under Limitations on each page, list what a person accepted in code-reviews.md, test-reports.md or bug-analyses.md that users of that capability can notice, with the reason, and remove the limitations this slice lifted."
           },
           {
-            "name": "decisions",
+            "name": "architecture",
             "agent": "general-purpose",
             "executionMode": "fork",
-            "context": "Decision records: for each significant decision in the slice's design.md, write one record: its context, the decision, the alternatives considered and why they were rejected, and its consequences. When a decision replaces an earlier record, mark that record as superseded and link the two."
+            "context": "The architecture views in `architecture/`: `context.md`, `building-blocks.md`, `runtime.md` and `deployment.md`. Change a view only where the slice's design.md and its code change what the view shows: a new or changed part, interface, neighbor, key flow or environment. Write nothing otherwise. Draw a diagram, when one helps, as Mermaid C4 or a sequence diagram."
           },
           {
-            "name": "known-issues",
+            "name": "concepts",
             "agent": "general-purpose",
             "executionMode": "fork",
-            "context": "Known issues: every review finding in code-reviews.md and every test in test-reports.md that a person accepted or deferred, with its reason and, when deferred, its owner and date, and every root cause in bug-analyses.md left open for a person, with why. Remove the entries this slice fixed."
+            "context": "The cross-cutting rules in `architecture/concepts.md`: add or sharpen a rule only when the slice shows one that the code should follow everywhere, such as a convention from design.md, or a root cause in bug-analyses.md that would recur elsewhere, stated as the rule and the reason. Never record a single bug. Write nothing otherwise."
           },
           {
-            "name": "lessons",
+            "name": "adr",
             "agent": "general-purpose",
             "executionMode": "fork",
-            "context": "Lessons from the bug-fix loop in bug-analyses.md: for each root cause, what broke, why, which instrument found it at which level, and the data that was missing when a diagnostics fix was needed; and for each instrument, the causes it found. Write nothing when the slice had no bug-fix rounds."
+            "context": "Decision records in `architecture/decisions/`: for each significant decision in the slice's design.md, one new record, `NNNN-<title>.md`, numbered after the last one: its context, the decision, the alternatives considered and why they were rejected, and its consequences. When a decision replaces an earlier record, mark that record as superseded and link the two."
+          },
+          {
+            "name": "risks",
+            "agent": "general-purpose",
+            "executionMode": "fork",
+            "context": "Risks and technical debt in `architecture/risks.md`, one table: each review finding and test that a person deferred, and each root cause in bug-analyses.md left open, with what it risks, the reason, the owner and the date when given. Remove the rows of what this slice fixed. Never add a finding no person decided on."
+          },
+          {
+            "name": "overview",
+            "agent": "general-purpose",
+            "executionMode": "fork",
+            "context": "The overview in `overview/`: product.md, tech.md and structure.md. Change a page only when the slice changes what the product does for its users, the technology it uses, or how the code is organized, and write nothing otherwise. Create a missing page only when the slice gives enough to write it."
+          },
+          {
+            "name": "index",
+            "agent": "general-purpose",
+            "executionMode": "fork",
+            "context": "Update the `index.md` of every folder in which the staged pages add or remove a page, listing each page with a one-line description, and add an entry at the top of `log.md`: `## <date>: <the slice's title>`, then one line per page the slice changed, and where its records are kept. Keep a short 'How to read' part at the top of the root `index.md`: where to start, the structure and what each part is for, and the conventions a reader relies on, as the documentation source's context describes them. Change it only when they changed."
+          },
+          {
+            "name": "instructions",
+            "agent": "general-purpose",
+            "executionMode": "fork",
+            "context": "Runs last. Keep the documentation block in the project's root `AGENTS.md`, between `<!-- slicewright:knowledge -->` and `<!-- /slicewright:knowledge -->`: a `## Project documentation` heading; one line per documentation source with its name, where it is or how to reach it, and where to start; and one line saying that a slice in progress keeps its unpublished documentation changes in `<activeSlicePath>/docs/`, at the same paths, to be read first, and that a source that can't be reached is noted as an assumption without stopping the work. Point to the documentation and never copy its content. Replace only what is between the markers; the first time, add the block at the end of the file, and when there is no `AGENTS.md`, create it with only the block. Never change `CLAUDE.md` or anything else in `AGENTS.md`. `AGENTS.md` isn't part of the documentation: write it in place, not staged."
           }
         ]
       }

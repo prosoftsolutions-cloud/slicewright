@@ -15,7 +15,7 @@ Arguments: $ARGUMENTS
 The arguments are a JSON object. This stage uses:
 
 - `activeSlicePath`: the folder for the slice in progress
-- `docPath`: the project's knowledge folder, which may be missing
+- `knowledge`: the project's documentation, which may be missing: `sources`, each with a `name`, a `path` when it is a folder in the project or a `skill` that reaches it, and a `context` saying what is there and how to read it; and `publishTo`, the name of the source the slice's documentation changes go to
 - `context`: the project's rules for this stage, which may be missing, such as where its patterns are described, which documentation tools to use, and what a design must cover
 - `designAgents`: the agents that explore the code and propose the design. When missing, you design everything yourself.
 - `reviewAgents`: the agents that review the merged draft. When missing, use one general-purpose reviewer. When it is an empty list, skip the review. A reviewer's `context` is its review instructions: what to look for; empty means a general review.
@@ -28,6 +28,8 @@ Each agent entry has:
 - `name`: a label for the record, which may be missing
 
 Ignore any other key. The context is rules for you to follow. Never copy it into a file.
+
+The project's documentation: read each source in `knowledge.sources` as its `context` describes, and only the parts your work needs. When a source can't be reached, say so in your result, treat what you needed from it as an assumption, and go on. Pages this slice has already changed in the source that `knowledge.publishTo` names are staged in `<activeSlicePath>/docs/`, at their paths in that source: read a staged page instead of the published one, and a `<path>.delete` file there means that page is being removed. Every prompt you give an agent carries this line after its instructions, unless `knowledge` is missing: `The project's documentation: {each source: its name, its path or its skill, and its context} Pages this slice has changed are staged in {activeSlicePath}/docs/ at the same paths: read those instead of the published ones.`
 
 Never ask the user anything. What you can't settle becomes an open question in design.md, and a later stage takes it to a person.
 
@@ -42,7 +44,7 @@ Never ask the user anything. What you can't settle becomes an open question in d
 Gather what every design agent needs, once, so they don't each repeat it:
 
 - **Sources the context names:** read every one.
-- **Knowledge in `docPath`:** if the folder exists, read its `index.md` first, then follow links to the concepts related to the spec, and read only those. Prefer pages that carry `verified`. Treat pages with `status: deprecated`, or with a `stale_after` date in the past, as unreliable: anything you take from them becomes an assumption. Skip this when no `docPath` was given.
+- **The project's documentation:** start where each source's `context` says, then read only the pages related to the spec. Treat pages the documentation marks as deprecated or out of date as unreliable: anything you take from them becomes an assumption. Skip this when no `knowledge` was given.
 - **Project instructions:** `CLAUDE.md` and `AGENTS.md` files at the root and in the areas the spec touches.
 
 The brief holds the paths of spec.md and input.md, the confirmed answers and review notes from an earlier design.md, and what you learned above that matters for this spec, with the paths it came from.

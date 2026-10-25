@@ -15,6 +15,7 @@ Arguments: $ARGUMENTS
 The arguments are a JSON object. This stage uses:
 
 - `activeSlicePath`: the folder for the slice in progress
+- `knowledge`: the project's documentation, which may be missing: `sources`, each with a `name`, a `path` when it is a folder in the project or a `skill` that reaches it, and a `context` saying what is there and how to read it; and `publishTo`, the name of the source the slice's documentation changes go to
 - `plan`: the plan file to carry out, in `activeSlicePath`; `plan.md` when missing
 - `taskTypes`: the kinds of task, as an object mapping each type's name to an entry with `description`, `executionMode` (`fork` runs the type's agent as a subagent; `inline` means you do the task yourself), `skill` or `agent` (for `fork`, the skill the subagent invokes, or else the subagent type, `general-purpose` when neither is given) and `context` (the expertise for this type). It may be missing.
 - `qualityGateAgents`: the gates that decide whether the project is workable, in the order they run. When missing, use one `general-purpose` gate that builds the project and runs its tests as the CI configuration and the project instructions describe. An empty list means no gate.
@@ -27,6 +28,8 @@ The arguments are a JSON object. This stage uses:
 Each agent entry in `qualityGateAgents` and `reviewAgents` has `executionMode` (`fork` runs it as a subagent; `inline` means you take that role yourself), `skill` or `agent` (for `fork`, the skill the subagent invokes, or else the subagent type, `general-purpose` when neither is given), `context` (what it checks, and for a reviewer which tasks it applies to, such as task types) and `name` (a label for the record, which may be missing).
 
 Ignore any other key. The contexts are rules to follow. Never copy them into a file.
+
+The project's documentation: read each source in `knowledge.sources` as its `context` describes, and only the parts your work needs. When a source can't be reached, say so in your result, treat what you needed from it as an assumption, and go on. Pages this slice has already changed in the source that `knowledge.publishTo` names are staged in `<activeSlicePath>/docs/`, at their paths in that source: read a staged page instead of the published one, and a `<path>.delete` file there means that page is being removed. Every prompt you give an agent carries this line after its instructions, unless `knowledge` is missing: `The project's documentation: {each source: its name, its path or its skill, and its context} Pages this slice has changed are staged in {activeSlicePath}/docs/ at the same paths: read those instead of the published ones.`
 
 Never ask the user anything. When a person must decide, stop with an error that says what.
 
@@ -107,6 +110,9 @@ Rules:
   the code or a file it relies on is missing, stop and report BLOCKED with what you
   found. Don't work around it.
 - Write tests that need nothing deployed and no external environment.
+- Never change a page of the project's documentation in place: write the whole new
+  page to {activeSlicePath}/docs/<its path in the documentation>, or the empty file
+  {activeSlicePath}/docs/<its path>.delete to remove one, as the task lists.
 - Never weaken, skip or delete a test, add suppressions, or loosen any tool's
   settings to make a check pass.
 - Run every command in the Verify section and fix your code until each shows what it
@@ -176,7 +182,7 @@ A task reported `BLOCKED` or `ENVIRONMENT` gets no fix rounds.
 1. **Bring back** (`worktree` only). For each checked task, copy its changed files from its copy into the same paths in the project folder, and delete the files it deleted. Then remove the copy the way it was made: a git worktree together with its branch, or a copy made by the project's hook as the context says; when the context doesn't say, leave it and name it in the record. Keep the copy of a task that failed or was blocked, and record where it is.
 2. **Wave check.** In the project folder, run every checked task's Verify commands again, then run the quality gates, except after the last wave, where the final gate of step 8 runs them. When something fails, fix it as in step 7, then run the whole wave check again from its start.
 3. **Commit** each checked task: commit exactly its files, named one by one, including deletions, never everything that changed at once, and commit them with the message `<task id> <title>`, unless the context gives another format. Never commit files in `<activeSlicePath>`. Without version control, skip this.
-4. **Tick** each committed task in the plan file, and record the wave in implement.md.
+4. **Tick** in the plan file each committed task, and each checked task whose files are all in `<activeSlicePath>`, such as staged documentation, which has nothing to commit. Record the wave in implement.md.
 
 When a task of the wave failed, was blocked, or hit the environment: still check, bring back and commit the tasks that passed, then stop. Skip the quality gates, because the failed task's work may be in the tree. Leave the failed task's files and copy as they are for a person, and return `TASK_BLOCKED`, `ENVIRONMENT` or `TASK_FAILED`, in that order of precedence.
 

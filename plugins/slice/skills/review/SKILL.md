@@ -15,6 +15,7 @@ Arguments: $ARGUMENTS
 The arguments are a JSON object. This stage uses:
 
 - `activeSlicePath`: the folder for the slice in progress
+- `knowledge`: the project's documentation, which may be missing: `sources`, each with a `name`, a `path` when it is a folder in the project or a `skill` that reaches it, and a `context` saying what is there and how to read it; and `publishTo`, the name of the source the slice's documentation changes go to
 - `record`: the review record in `activeSlicePath`; `code-reviews.md` when missing
 - `reviewAgents`: the agents that review the code. When missing, use one general-purpose reviewer. When it is an empty list, skip the review. Each entry has:
   - `executionMode`: `fork` runs it as a subagent; `inline` means you review yourself, following its context
@@ -24,6 +25,8 @@ The arguments are a JSON object. This stage uses:
 - `context`: the project's rules for this stage, which may be missing, such as which rules files the code must meet
 
 Ignore any other key. The contexts are rules for you and the agents to follow. Never copy them into a file.
+
+The project's documentation: read each source in `knowledge.sources` as its `context` describes, and only the parts your work needs. When a source can't be reached, say so in your result, treat what you needed from it as an assumption, and go on. Pages this slice has already changed in the source that `knowledge.publishTo` names are staged in `<activeSlicePath>/docs/`, at their paths in that source: read a staged page instead of the published one, and a `<path>.delete` file there means that page is being removed. Every prompt you give an agent carries this line after its instructions, unless `knowledge` is missing: `The project's documentation: {each source: its name, its path or its skill, and its context} Pages this slice has changed are staged in {activeSlicePath}/docs/ at the same paths: read those instead of the published ones.`
 
 Never ask the user anything, and never change any file except the record.
 
@@ -42,7 +45,7 @@ The round number is one more than the last round in the record, or 1.
 - **Round 1** reviews the whole slice: from the start revision of implement.md's first run to the current revision.
 - **A later round** reviews only what changed since the previous round: from the revision the previous round reviewed up to, to the current revision. If nothing changed, the scope is empty: skip to step 4, then record the round.
 
-Use the project's version control, the one the context or the project instructions name, or else the one the project folder uses, with its own commands. List the files changed between the two revisions. Without version control, take the files that implement.md lists for the runs in the scope.
+Use the project's version control, the one the context or the project instructions name, or else the one the project folder uses, with its own commands. List the files changed between the two revisions. Without version control, take the files that implement.md lists for the runs in the scope. Staged documentation is part of the change even when the version control doesn't show it: add each file in `<activeSlicePath>/docs/` that changed in the scope's runs of implement.md.
 
 **Blast radius.** For every changed file, find what it provides that other code uses: functions, classes, routes, tables, config keys. Search the code for their users. The blast radius is the changed files, the files that use what changed, and the tests of both. Its size is the number of files in it. A later round reviews the whole blast radius, not only the changed files, because a fix can break what calls it.
 
@@ -67,7 +70,8 @@ round, and the code that uses what they changed}. Revisions {from} to {to}.
 Changed files: {list}
 Files in the blast radius: {list}
 Read each change with the project's version control, comparing those two revisions;
-without version control, read the changed files whole.
+without version control, read the changed files whole. Read staged documentation
+pages whole, against the published page at the same path.
 
 Already decided, never report again:
 {each earlier finding that a person accepted or deferred, or that is being fixed,

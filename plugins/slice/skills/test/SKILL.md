@@ -15,6 +15,7 @@ Arguments: $ARGUMENTS
 The arguments are a JSON object. This stage uses:
 
 - `activeSlicePath`: the folder for the slice in progress
+- `knowledge`: the project's documentation, which may be missing: `sources`, each with a `name`, a `path` when it is a folder in the project or a `skill` that reaches it, and a `context` saying what is there and how to read it; and `publishTo`, the name of the source the slice's documentation changes go to
 - `record`: the test report in `activeSlicePath`; `test-reports.md` when missing
 - `testAgents`: the suites, in the order they run. When missing, use one `general-purpose` suite that runs the project's tests that need a deployed environment, as the CI configuration and the project instructions describe. When it is an empty list, return `skipped`. Each entry has:
   - `executionMode`: `fork` runs it as a subagent; `inline` means you run the suite yourself
@@ -24,6 +25,8 @@ The arguments are a JSON object. This stage uses:
 - `context`: the project's rules for this stage, which may be missing
 
 Ignore any other key. The contexts are rules to follow. Never copy them into a file.
+
+The project's documentation: read each source in `knowledge.sources` as its `context` describes, and only the parts your work needs. When a source can't be reached, say so in your result, treat what you needed from it as an assumption, and go on. Pages this slice has already changed in the source that `knowledge.publishTo` names are staged in `<activeSlicePath>/docs/`, at their paths in that source: read a staged page instead of the published one, and a `<path>.delete` file there means that page is being removed. Every prompt you give an agent carries this line after its instructions, unless `knowledge` is missing: `The project's documentation: {each source: its name, its path or its skill, and its context} Pages this slice has changed are staged in {activeSlicePath}/docs/ at the same paths: read those instead of the published ones.`
 
 Never ask the user anything. Never change the project's source files; test output such as reports and screenshots is fine.
 

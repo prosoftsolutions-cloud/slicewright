@@ -15,6 +15,7 @@ Arguments: $ARGUMENTS
 The arguments are a JSON object. This stage uses:
 
 - `activeSlicePath`: the folder for the slice in progress
+- `knowledge`: the project's documentation, which may be missing: `sources`, each with a `name`, a `path` when it is a folder in the project or a `skill` that reaches it, and a `context` saying what is there and how to read it; and `publishTo`, the name of the source the slice's documentation changes go to
 - `taskTypes`: the kinds of task the project's workers carry out, as an object mapping each type's name to an entry. It may be missing. Each entry has:
   - `description`: what work belongs to this type
   - `executionMode`: `fork` runs the type's agent as a subagent; `inline` means you take that role yourself
@@ -31,6 +32,8 @@ The arguments are a JSON object. This stage uses:
   - `name`: a label for the record, which may be missing
 
 Ignore any other key. The contexts are rules for you and the agents to follow. Never copy them into a file.
+
+The project's documentation: read each source in `knowledge.sources` as its `context` describes, and only the parts your work needs. When a source can't be reached, say so in your result, treat what you needed from it as an assumption, and go on. Pages this slice has already changed in the source that `knowledge.publishTo` names are staged in `<activeSlicePath>/docs/`, at their paths in that source: read a staged page instead of the published one, and a `<path>.delete` file there means that page is being removed. Every prompt you give an agent carries this line after its instructions, unless `knowledge` is missing: `The project's documentation: {each source: its name, its path or its skill, and its context} Pages this slice has changed are staged in {activeSlicePath}/docs/ at the same paths: read those instead of the published ones.`
 
 Never ask the user anything.
 
@@ -56,6 +59,7 @@ Divide the work and fix how the pieces connect. The skeleton holds what every ta
 6. **No shared files at the same time.** Tasks that may run at the same time never change the same file. A file that several tasks would change, such as a route table, a registration of services or a dependency file, belongs to one task; the others say in their Interfaces what they expect to find there.
 7. **Full coverage, nothing extra.** Every requirement is covered by a task, and every acceptance criterion is proved by the Verify section of at least one task: a command or check that shows it holds. No task does work that the spec and design don't call for.
 8. **Checks need nothing deployed.** Every command in a Verify section and in the final check runs on this machine, with nothing deployed and no external environment: builds, unit tests, tests against the application started locally, static checks. A task's Verify runs only that task's own tests, never a whole suite, because other tasks change other files at the same time. Write each command as one simple command, with no `cd`, chaining, pipes or loops: implement runs them under the project's permission rules, which refuse compound commands. A task may write tests that need a deployed environment; it then only builds and lints them, and the plan file lists them under Deployed checks for a later stage.
+9. **Documentation is staged.** No task changes a page of the project's documentation in place: the consolidate stage publishes the slice's changes once it is done. A task that creates or changes a page writes the whole new page to `<activeSlicePath>/docs/<its path in the documentation>`, and a task that removes one creates the empty file `<activeSlicePath>/docs/<its path>.delete`; those are the files it lists. Its Verify checks the staged pages, for example that every name and example in them matches the code. Documentation that lives in the code, such as comments, docstrings or generated reference, changes with the code as usual.
 
 **In findings mode,** these rules replace rules 1 and 7:
 

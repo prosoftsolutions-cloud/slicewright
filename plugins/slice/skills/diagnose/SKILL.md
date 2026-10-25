@@ -15,6 +15,7 @@ Arguments: $ARGUMENTS
 The arguments are a JSON object. This stage uses:
 
 - `activeSlicePath`: the folder for the slice in progress
+- `knowledge`: the project's documentation, which may be missing: `sources`, each with a `name`, a `path` when it is a folder in the project or a `skill` that reaches it, and a `context` saying what is there and how to read it; and `publishTo`, the name of the source the slice's documentation changes go to
 - `record`: the analysis record in `activeSlicePath`; `bug-analyses.md` when missing
 - `tests`: the test record in `activeSlicePath`; `test-reports.md` when missing
 - `instrumentAgents`: the instruments. When missing, use one read-only `general-purpose` instrument that reads the failed tests' output and artifacts and the code they exercise. When it is an empty list, return `skipped`. Each entry has:
@@ -29,6 +30,8 @@ The arguments are a JSON object. This stage uses:
 - `context`: the project's rules for this stage, which may be missing
 
 Ignore any other key. The contexts are rules for you and the instruments to follow. Never copy them into a file.
+
+The project's documentation: read each source in `knowledge.sources` as its `context` describes, and only the parts your work needs. When a source can't be reached, say so in your result, treat what you needed from it as an assumption, and go on. Pages this slice has already changed in the source that `knowledge.publishTo` names are staged in `<activeSlicePath>/docs/`, at their paths in that source: read a staged page instead of the published one, and a `<path>.delete` file there means that page is being removed. Every prompt you give an agent carries this line after its instructions, unless `knowledge` is missing: `The project's documentation: {each source: its name, its path or its skill, and its context} Pages this slice has changed are staged in {activeSlicePath}/docs/ at the same paths: read those instead of the published ones.`
 
 Never ask the user anything, and never change any file except the record, apart from what instruments with `readOnly: false` change and you restore. Nobody changes the deployment in this stage: no deploying, restarting or reconfiguring it, and no changing its data except by running the project's tests against it.
 

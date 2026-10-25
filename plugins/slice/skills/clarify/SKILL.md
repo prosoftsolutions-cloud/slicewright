@@ -15,7 +15,7 @@ Arguments: $ARGUMENTS
 The arguments are a JSON object. This stage uses:
 
 - `activeSlicePath`: the folder for the slice in progress
-- `docPath`: the project's knowledge folder, which may be missing
+- `knowledge`: the project's documentation, which may be missing: `sources`, each with a `name`, a `path` when it is a folder in the project or a `skill` that reaches it, and a `context` saying what is there and how to read it; and `publishTo`, the name of the source the slice's documentation changes go to
 - `context`: the project's rules for this stage, which may be missing
 - `reviewAgents`: the agents that review the draft. When missing, use one general-purpose reviewer. When it is an empty list, skip the review. Each entry has:
   - `executionMode`: `fork` runs it as a subagent; `inline` means you review yourself, following its context
@@ -24,6 +24,8 @@ The arguments are a JSON object. This stage uses:
   - `name`: a label for the record, which may be missing
 
 Ignore any other key. The context is rules and pointers for you to follow. Never copy it into the spec or any other file.
+
+The project's documentation: read each source in `knowledge.sources` as its `context` describes, and only the parts your work needs. When a source can't be reached, say so in your result, treat what you needed from it as an assumption, and go on. Pages this slice has already changed in the source that `knowledge.publishTo` names are staged in `<activeSlicePath>/docs/`, at their paths in that source: read a staged page instead of the published one, and a `<path>.delete` file there means that page is being removed. Every prompt you give an agent carries this line after its instructions, unless `knowledge` is missing: `The project's documentation: {each source: its name, its path or its skill, and its context} Pages this slice has changed are staged in {activeSlicePath}/docs/ at the same paths: read those instead of the published ones.`
 
 Never ask the user anything, even when running in the main conversation. What you can't settle becomes an open question in the spec, and a later stage takes it to a person.
 
@@ -36,7 +38,7 @@ Read `<activeSlicePath>/input.md`; it holds the request. If it doesn't exist, re
 Find everything you can before you decide that something is a question for a person.
 
 - **Sources the context names:** read every one.
-- **Knowledge in `docPath`:** if the folder exists, read its `index.md` first, then follow links to the concepts related to the request, and read only those. Prefer pages that carry `verified`. Treat pages with `status: deprecated`, or with a `stale_after` date in the past, as unreliable: anything you take from them becomes an assumption. If the folder doesn't exist, say so in the result and continue. Never create it. Skip this when no `docPath` was given.
+- **The project's documentation:** start where each source's `context` says, then read only the pages related to the request. Treat pages the documentation marks as deprecated or out of date as unreliable: anything you take from them becomes an assumption. If the documentation isn't there, say so in the result and continue; never create it. Skip this when no `knowledge` was given.
 - **Project instructions:** `CLAUDE.md` and `AGENTS.md` files at the root and in the areas the request touches.
 - **Code:** the modules, tests and configuration the request touches, and the patterns they follow.
 - **Anything the request refers to.**
