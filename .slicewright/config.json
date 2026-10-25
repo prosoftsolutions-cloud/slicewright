@@ -274,7 +274,14 @@
       "params": {
         "context": "",
         "record": "test-reports.md",
-        "testAgents": []
+        "testAgents": [
+          {
+            "name": "smoke",
+            "agent": "general-purpose",
+            "executionMode": "fork",
+            "context": "The smoke test of the plugin in plugins/slice, which the documentation's overview/testing.md describes. It runs the pipeline headless on a copy of a sample project and takes longer than one shell command may last, so run it in steps. 1. Run `sh tests/smoke.sh start`. It returns at once, and its last line, `run: <folder>`, names the run's folder. When it exits with status 2, the suite didn't start: report NOT_STARTED with its output. 2. Run `sh tests/smoke.sh wait <folder>` with the longest timeout your shell tool allows. It returns before one shell command's time runs out; if the shell tool stops it first, run the same command again. While it exits with status 3, the run is still going: run the same command again. Status 0 means every check passed, and 1 that a check failed. Status 2 means the folder isn't a run folder: report NOT_STARTED with its output. 3. Report each line of the final output that starts with PASS or FAIL as one test: its name is the check's name, the word after its number, such as `session`; its file is `tests/smoke.sh`; it passed or failed as the line says, and the text after the colon is its output. Give the folder from the last line as the artifacts. To run a failed check once more, run `sh tests/smoke.sh check <folder>`: it evaluates the checks again on the files the run left, without a new run."
+          }
+        ]
       }
     },
     {
