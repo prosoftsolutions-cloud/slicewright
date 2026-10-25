@@ -1,0 +1,466 @@
+{
+  "sharedParams": {
+    "activeSlicePath": "./slice",
+    "knowledge": {
+      "publishTo": "docs",
+      "sources": [
+        {
+          "name": "docs",
+          "path": "./doc",
+          "context": "An OKF bundle: Markdown pages, one subject each, with YAML frontmatter that has at least a `type`; an `index.md` in every folder lists its pages, and `log.md` at the root lists the consolidated slices, newest first. `overview/` describes the product, its technology and how the code is organized: read it first. `product/spec/` is what the system does now, one page per capability, each with its known limitations. `product/guides/` is the documentation for users: tutorials, how-to guides, reference and explanation. `architecture/` follows arc42: `context.md` the system and its neighbors, `building-blocks.md` its parts and their interfaces, `runtime.md` its key flows, `deployment.md` its environments and infrastructure, `concepts.md` the rules that apply across the code, `decisions/` the numbered decision records, `risks.md` the risks and technical debt, and `glossary.md` the terms. Start at `index.md`, then read only the pages your work needs. Prefer pages marked `verified: true`; a page with `status: deprecated` or a `stale_after` date in the past is unreliable."
+        }
+      ]
+    },
+    "taskTypes": {
+      "plugin": {
+        "description": "the plugin's code: the skills, defaults.json and the manifests under plugins/slice, and the repo's README.md and AGENTS.md",
+        "executionMode": "fork",
+        "agent": "general-purpose",
+        "context": "You are a skill author. Follow the design rules and skill conventions in AGENTS.md. A change to the pipeline's behavior goes into plugins/slice, never into the repo's own .slicewright/config.json. Never edit anything under .slicewright/stable/."
+      },
+      "documentation": {
+        "description": "pages of the project's documentation, such as guides and reference for users, staged in the slice until it is consolidated",
+        "executionMode": "fork",
+        "agent": "general-purpose",
+        "context": "You are a technical writer. Follow the documentation's conventions and structure, and keep every name, command and example consistent with the interfaces as built."
+      },
+      "test": {
+        "description": "tests of the plugin and their sample projects, outside plugins/slice",
+        "executionMode": "fork",
+        "agent": "general-purpose",
+        "context": "You are a test engineer for a Claude Code plugin. Tests load the plugin from the working copy, plugins/slice, never from .slicewright/stable/, and change only copies of their sample projects. Follow the test layout and tools the documentation describes."
+      }
+    }
+  },
+  "pipeline": [
+    {
+      "name": "intake",
+      "skill": "slice:intake",
+      "executionMode": "fork",
+      "params": {
+        "context": "Checks, in order: 1. Fetch origin. `.slicewright/stable/` must be a git working copy of this repository at the latest commit of `origin/master`. When it is missing or behind, stop with CHECK_FAILED and say how to fix it: to install, `git worktree add --detach .slicewright/stable origin/master`; to update, `git -C .slicewright/stable checkout --detach origin/master`; then start a new session with `claude --plugin-dir .slicewright/stable/plugins/slice`. Never install or update it yourself. 2. The working copy is on `master`, with no uncommitted changes, at `origin/master`. 3. `gh` is installed and signed in. Input: a number such as `2` or `#2`, or the URL of an issue in prosoftsolutions-cloud/slicewright: read it with `gh issue view <number> --repo prosoftsolutions-cloud/slicewright --comments`. The title is the issue's title, the id is `issue-<number>`, the source is its URL, and the input is its body and comments. Any other input is used as given, without an id. Then create the branch `slice/<number>-<title in lowercase words joined with ->` from `master`, or `slice/<title in lowercase words joined with ->` without an issue, and switch to it."
+      }
+    },
+    {
+      "name": "clarify",
+      "skill": "slice:clarify",
+      "executionMode": "fork",
+      "params": {
+        "context": "",
+        "reviewAgents": [
+          {
+            "agent": "general-purpose",
+            "context": "Check the spec for: placeholders, TODO, TBD, empty sections, or a requirement without an acceptance criterion; sections that contradict each other, or a declared scope that doesn't cover the requirements, or requirements outside it; a requirement or criterion that could be built two different ways; an acceptance criterion that no test or reviewer could check; more than one slice of work, meaning independent pieces that should be split; features or options the goal doesn't need; a question with no recommended answer, or a decision hidden in the requirements that should be an open question.",
+            "executionMode": "fork"
+          }
+        ]
+      }
+    },
+    {
+      "name": "spec-review",
+      "skill": "slice:human",
+      "executionMode": "inline",
+      "params": {
+        "files": [
+          "spec.md",
+          "input.md"
+        ],
+        "context": "Present spec.md for approval, with a short summary of clarify's latest entry in design-reviews.md: issues fixed, issues rejected and why, and reviews that didn't run. Walk the user through its open questions, then ask them to confirm the assumptions. Apply each answer to the requirements and acceptance criteria it affects, keep the spec's format, remove a question from Open questions once it is answered, and remove that section when it is empty. The user decides whether to approve the spec. When approved, append a '## Session summary' section to input.md, replacing an earlier one and never changing the text above it: the decisions, each question with its answer, the assumptions the user confirmed, anything still open, and a last line 'See spec: spec.md'."
+      }
+    },
+    {
+      "name": "design",
+      "skill": "slice:design",
+      "executionMode": "fork",
+      "params": {
+        "context": "",
+        "designAgents": [
+          {
+            "agent": "general-purpose",
+            "context": "",
+            "executionMode": "fork"
+          }
+        ],
+        "reviewAgents": [
+          {
+            "agent": "general-purpose",
+            "context": "Check the design against the spec for: a requirement or acceptance criterion it doesn't address; work the spec doesn't ask for, or anything that contradicts the spec; a significant choice made without a reason or without alternatives; a shape two parts could read differently, or parts that depend on each other with no contract between them; a destructive or irreversible change, or a security or data concern, without a mitigation; an approach more complex than the requirements need; a question that would change the approach but isn't marked as blocking, or one without a recommended answer.",
+            "executionMode": "fork"
+          }
+        ]
+      }
+    },
+    {
+      "name": "plan",
+      "skill": "slice:plan",
+      "executionMode": "fork",
+      "params": {
+        "context": "",
+        "reviewAgents": [
+          {
+            "agent": "general-purpose",
+            "context": "Check the plan for: a requirement no task covers, or an acceptance criterion no Verify section proves; a Uses entry that doesn't match the Provides it relies on exactly, a name that differs between tasks, or pieces that would build alone but not together; an existing file, class or method a task names wrongly; a task a worker couldn't finish from its own file, because it relies on another task's file or on the spec or design without copying what it needs; tasks in the same wave that change the same file; a task that needs another's code without depending on it, a dependency that needs only a shape and makes a task wait for nothing, or a cycle; a task whose Verify section doesn't prove it's done, a final check that doesn't prove the merged result works, or a check in either that needs something deployed; a task for work the spec and design don't call for; a task too big for one worker session, or tasks so small they only make sense together.",
+            "executionMode": "fork"
+          }
+        ]
+      }
+    },
+    {
+      "name": "design-review",
+      "skill": "slice:human",
+      "executionMode": "inline",
+      "params": {
+        "files": [
+          "design.md"
+        ],
+        "context": "Present design.md and plan.md for approval: first the open questions in design.md, then the key decisions and risks, then the tasks, the waves they run in, the final check and the plan decisions, then a short summary of the latest design and plan entries in design-reviews.md: issues fixed, issues rejected and why, and reviews that didn't run. Record each answer in design.md: apply it to the decisions it affects, and remove the question once answered. Write what the user wants changed in the design or the plan under '## Review notes' in design.md, replacing that section from an earlier review. Never edit plan.md or the task files. Then the user chooses: approve when the design and the plan are right, re-plan when only the plan must change, re-design when the design itself must change.",
+        "choices": {
+          "approve": "implement",
+          "re-plan": "plan",
+          "re-design": "design"
+        }
+      }
+    },
+    {
+      "name": "implement",
+      "skill": "slice:implement",
+      "executionMode": "fork",
+      "next": "review",
+      "onError": "implement-decision",
+      "params": {
+        "context": "",
+        "isolation": "none",
+        "maxParallel": 0,
+        "fixRounds": 2,
+        "qualityGateAgents": [
+          {
+            "name": "build and tests",
+            "executionMode": "fork",
+            "agent": "general-purpose",
+            "context": "Run `claude plugin validate .` and `claude plugin validate plugins/slice`; both must pass. Check that every JSON file under plugins/slice parses. Run the project's tests that need no headless Claude run, when the documentation describes any."
+          }
+        ],
+        "reviewAgents": []
+      }
+    },
+    {
+      "name": "implement-decision",
+      "skill": "slice:human",
+      "executionMode": "inline",
+      "params": {
+        "files": [
+          "design.md"
+        ],
+        "context": "Present why implement stopped, from the latest run in implement.md: a failed baseline or check with its diagnosis, the tasks that failed or were blocked with their reports, and the fixes already tried. Say what is already committed and where the unfinished work is: files left changed in the working tree, or a kept copy of the code. Then the user chooses: retry once the cause is fixed, for example after fixing the development environment or the code by hand; re-plan when tasks must change; re-design when the design itself must change; stop to end the run. For re-plan or re-design, write what must change under '## Review notes' in design.md, replacing that section from an earlier review.",
+        "choices": {
+          "retry": "implement",
+          "re-plan": "plan",
+          "re-design": "design",
+          "stop": null
+        }
+      }
+    },
+    {
+      "name": "review",
+      "skill": "slice:review",
+      "executionMode": "fork",
+      "params": {
+        "context": "The code must also follow the cross-cutting rules in the documentation's `architecture/concepts.md`, when it exists.",
+        "record": "code-reviews.md",
+        "reviewAgents": [
+          {
+            "name": "spec",
+            "agent": "general-purpose",
+            "executionMode": "fork",
+            "context": "Completeness and coherence against the spec and the design. Go through every requirement and acceptance criterion one at a time, and find where the code, the tests and the documentation deliver it exactly as written; any that isn't is a finding. Then check that every decision and contract is followed, and that nothing was built that the spec doesn't ask for."
+          },
+          {
+            "name": "code",
+            "agent": "general-purpose",
+            "executionMode": "fork",
+            "context": "Check the changed code for: a bug or a missed case; an error that is swallowed; a contract between parts that is broken; input that isn't validated; data that can be lost or exposed; code that ignores the project's conventions, or the design rules and skill conventions in AGENTS.md."
+          },
+          {
+            "name": "tests",
+            "agent": "general-purpose",
+            "executionMode": "fork",
+            "context": "Check the tests of the change for: a test that doesn't assert the behavior it names; changed behavior with no test; a test weakened, skipped or deleted; a test that needs something deployed."
+          },
+          {
+            "name": "docs",
+            "agent": "general-purpose",
+            "executionMode": "fork",
+            "context": "Documentation against the code: in every page the change touches, including the pages staged in the slice, and every page the spec names, compare each endpoint, field, parameter, error message and example one by one with the code, and report each one that is missing, extra or different. Prove it with a command that shows both sides, such as a search of the docs and of the code. Check the root README.md the same way against plugins/slice/defaults.json and the skills: every command, stage, key and default it names."
+          }
+        ]
+      }
+    },
+    {
+      "name": "review-decision",
+      "skill": "slice:human",
+      "executionMode": "inline",
+      "next": "test",
+      "params": {
+        "files": [
+          "code-reviews.md",
+          "design.md"
+        ],
+        "context": "Skip this step when the latest round in code-reviews.md has no open blocking findings; advisory findings alone don't stop the run. Otherwise present the latest round: its scope and blast radius, and how they compare with the previous round. When neither the blast radius nor the number of open blocking findings shrank, say first that the review loop is not converging. Then present each blocking finding with its proof, its suggested fix and the blast radius of that fix, and then a short list of the advisory findings with why each is advisory. For each blocking finding the user decides: fix, accept with a reason, or defer with a reason, an owner and a date. Write each decision on the finding's Decision line in code-reviews.md, as 'fix', 'accepted: <why>' or 'deferred: <why>, <owner>, <date>'. The user may also pick advisory findings to fix: add ' · Decision: fix' to the end of each picked one's line; the others need no decision. Let the user answer for all findings in one message, such as 'fix R1-F1, R1-F3; ignore R1-F2'. Ignoring a blocking finding means accepting it: ask for the reason when it is missing. An advisory finding the user doesn't name stays as it is. Change nothing else in code-reviews.md. Then the user chooses: fix when any finding is to be fixed; ship when none is; re-plan or re-design when the findings show that the plan or the design is wrong, writing what must change under '## Review notes' in design.md and replacing that section from an earlier review; stop to end the run.",
+        "choices": {
+          "fix": "review-fix-plan",
+          "ship": "test",
+          "re-plan": "plan",
+          "re-design": "design",
+          "stop": null
+        }
+      }
+    },
+    {
+      "name": "review-fix-plan",
+      "skill": "slice:plan",
+      "executionMode": "fork",
+      "params": {
+        "context": "",
+        "findings": "code-reviews.md",
+        "plan": "review-round-*.md",
+        "sequential": true,
+        "reviewAgents": []
+      }
+    },
+    {
+      "name": "review-fix",
+      "skill": "slice:implement",
+      "executionMode": "fork",
+      "next": "review",
+      "onError": "review-fix-decision",
+      "params": {
+        "context": "",
+        "plan": "review-round-*.md",
+        "isolation": "none",
+        "maxParallel": 0,
+        "fixRounds": 2,
+        "qualityGateAgents": [
+          {
+            "name": "build and tests",
+            "executionMode": "fork",
+            "agent": "general-purpose",
+            "context": "Run `claude plugin validate .` and `claude plugin validate plugins/slice`; both must pass. Check that every JSON file under plugins/slice parses. Run the project's tests that need no headless Claude run, when the documentation describes any."
+          }
+        ],
+        "reviewAgents": []
+      }
+    },
+    {
+      "name": "review-fix-decision",
+      "skill": "slice:human",
+      "executionMode": "inline",
+      "params": {
+        "files": [
+          "design.md"
+        ],
+        "context": "Present why the fix round stopped, from the latest run in implement.md: a failed baseline or check with its diagnosis, the fix tasks that failed or were blocked with their reports, and the fixes already tried. Say what is already committed and where the unfinished work is. Then the user chooses: retry once the cause is fixed, for example after fixing the development environment or the code by hand; re-plan when the fix tasks must change, writing what must change under '## Review notes' in design.md and replacing that section from an earlier review; stop to end the run.",
+        "choices": {
+          "retry": "review-fix",
+          "re-plan": "review-fix-plan",
+          "stop": null
+        }
+      }
+    },
+    {
+      "name": "test",
+      "skill": "slice:test",
+      "executionMode": "fork",
+      "onError": "test-decision",
+      "params": {
+        "context": "",
+        "record": "test-reports.md",
+        "testAgents": []
+      }
+    },
+    {
+      "name": "test-decision",
+      "skill": "slice:human",
+      "executionMode": "inline",
+      "next": "consolidate",
+      "params": {
+        "files": [
+          "test-reports.md"
+        ],
+        "context": "Skip this step when test-reports.md has no run, or when every suite of its latest run ran and no failed test in that run has an open decision; flaky and disabled tests alone don't stop the run. Otherwise, when bug-analyses.md exists, the slice is in a bug-fix loop: show first a table with one row per round in bug-analyses.md: the iteration, which is the round number; the test run it started from; the tests it was to fix; in the test run after it, the earlier fixes that still fail and the new failures; the causes it fixed and those it left open; and its fix blast radius. When the tests to fix, the fixes that still fail, the new failures or the blast radius grew from one iteration to the next, say first that the loop seems to be going the wrong way, and that the decision is the user's. Then present the latest run: the revision and the deployment it tested, its totals, its earlier fixes that still fail and its new failures, and each suite that didn't start, with why. Then present each failed test with an open decision, with its output; then the failed tests already accepted or deferred, with that decision; then a short list of the flaky and disabled tests. Present the results as recorded: analyzing a failure is a later stage's job. For each failed test with an open decision the user decides: fix, accept with a reason, or defer with a reason, an owner and a date. Ask for a note on each test to fix: what the user has seen or suspects, such as when it started or which data triggers it. A note is optional, and the analysis treats it as a lead; a note that says what the right behavior is counts as part of the bar for its test. When a test picked to fix had its cause left open in an earlier round of bug-analyses.md because the bar doesn't say what is right, ask the user to say what is right in its note. Write each decision on the test's Decision line in test-reports.md, as 'fix', 'fix: <note>', 'accepted: <why>' or 'deferred: <why>, <owner>, <date>'. The user may also pick flaky or disabled tests to fix: add ' · Decision: fix' to the end of each picked one's line, or ' · Decision: fix: <note>'; the others need no decision. Let the user answer for all tests in one message, such as 'fix TR1-1: only with long titles, TR1-3; ignore TR1-2'. Ignoring a failed test means accepting it: ask for the reason when it is missing. A flaky or disabled test the user doesn't name stays as it is. Change nothing else in test-reports.md. Then the user chooses: fix when any test is to be fixed; finish when none is; retry the tests once the cause is fixed, when a suite didn't start or the environment misbehaved; stop to end the run.",
+        "choices": {
+          "fix": "bug-analysis",
+          "finish": "consolidate",
+          "retry": "test",
+          "stop": null
+        }
+      }
+    },
+    {
+      "name": "bug-analysis",
+      "skill": "slice:diagnose",
+      "executionMode": "fork",
+      "onError": "bug-fix-decision",
+      "params": {
+        "context": "",
+        "record": "bug-analyses.md",
+        "tests": "test-reports.md",
+        "confidence": "high",
+        "isolation": "none",
+        "instrumentAgents": [
+          {
+            "name": "evidence",
+            "agent": "general-purpose",
+            "executionMode": "fork",
+            "priority": 1,
+            "readOnly": true,
+            "context": "Read each failed test's output and artifacts, the test's code and the code it exercises, and the logs, traces and data the project's documentation says the deployment keeps, for the run's window. Follow each failure back from where it shows to where the wrong behavior starts."
+          },
+          {
+            "name": "history",
+            "agent": "general-purpose",
+            "executionMode": "fork",
+            "priority": 1,
+            "readOnly": true,
+            "context": "Search `.slicewright/slices/index.md` for earlier slices whose Areas, Pages or Root causes touch the code or the behavior under suspicion, and read the records they point to: bug-analyses.md for their root causes, and code-reviews.md and test-reports.md for what a person accepted or deferred. Report a cause that repeats an earlier one, naming the earlier cause and its slice, and a failing behavior that a person accepted on purpose, naming that decision. Report nothing when no earlier slice is related."
+          },
+          {
+            "name": "red-green",
+            "agent": "general-purpose",
+            "executionMode": "fork",
+            "priority": 2,
+            "readOnly": false,
+            "context": "Reproduce each failure on this machine: with a test against the code that needs nothing deployed, or against the application started the way the project's documentation describes. Write a test that fails because of the cause, then make the smallest change at the cause that makes it pass, and run the project's other tests that need nothing deployed to show they still pass. Report the test and the change."
+          }
+        ]
+      }
+    },
+    {
+      "name": "bug-fix-plan",
+      "skill": "slice:plan",
+      "executionMode": "fork",
+      "onError": "bug-fix-decision",
+      "params": {
+        "context": "Each task removes the root cause its findings name, where the wrong behavior starts; never a change that only hides the failure, such as a retry, a longer timeout, an ignored error, a skipped or deleted test, a looser assertion or a special case for the test's data. Change what a test expects only when its finding names the requirement, criterion, decision or contract that makes the old expectation wrong. A diagnostics finding adds only what its Fix names, such as logging.",
+        "findings": "bug-analyses.md",
+        "plan": "bug-round-*.md",
+        "sequential": true,
+        "reviewAgents": []
+      }
+    },
+    {
+      "name": "bug-fix",
+      "skill": "slice:implement",
+      "executionMode": "fork",
+      "onError": "bug-fix-decision",
+      "params": {
+        "context": "",
+        "plan": "bug-round-*.md",
+        "isolation": "none",
+        "maxParallel": 0,
+        "fixRounds": 2,
+        "qualityGateAgents": [
+          {
+            "name": "build and tests",
+            "executionMode": "fork",
+            "agent": "general-purpose",
+            "context": "Run `claude plugin validate .` and `claude plugin validate plugins/slice`; both must pass. Check that every JSON file under plugins/slice parses. Run the project's tests that need no headless Claude run, when the documentation describes any."
+          }
+        ],
+        "reviewAgents": [
+          {
+            "name": "root cause",
+            "agent": "general-purpose",
+            "executionMode": "fork",
+            "context": "Applies to every task. Check that the change removes the root cause its task names, where the wrong behavior starts, and is never a change that only hides the failure, such as a retry, a longer timeout, an ignored error, a skipped or deleted test, a looser assertion or a special case for the test's data. A changed test expectation must name the requirement, criterion, decision or contract that makes the old one wrong."
+          }
+        ]
+      }
+    },
+    {
+      "name": "bug-fix-decision",
+      "skill": "slice:human",
+      "executionMode": "inline",
+      "params": {
+        "files": [
+          "bug-analyses.md"
+        ],
+        "context": "Present iteration n of the bug-fix loop, the latest round in bug-analyses.md. Show first a table with one row per round in bug-analyses.md: the iteration, which is the round number; the test run it started from; the tests it was to fix; in the test run after it, the earlier fixes that still fail and the new failures; the causes it fixed and those it left open; and its fix blast radius. When the tests to fix, the fixes that still fail, the new failures or the blast radius grew from one iteration to the next, say first that the loop seems to be going the wrong way, and that the decision is the user's. When a stage of this iteration stopped with an error, say next why, from the latest round in bug-analyses.md or the latest run in implement.md. Then present what the iteration fixed: each cause decided fix, with its tests, its level and its fix, and how the fix went in implement.md's latest run, naming any cause whose failing test passed before any change as not reproduced. Then present what it left for a person: each cause of the latest round decided open, with why and its evidence. Open causes of earlier rounds aren't decided here: to fix one, the user picks its test again in test-decision, with a note saying what is right. For each open cause of the latest round the user may decide: fix, saying what is right when the bar doesn't say, accept with a reason, or defer with a reason, an owner and a date. Write each decision on the cause's Decision line in bug-analyses.md, as 'fix: <what is right>', 'accepted: <why>' or 'deferred: <why>, <owner>, <date>', and change nothing else there; an open cause the user doesn't decide stays open. Then the user chooses: fix to plan and fix the causes just decided fix; retest to run the tests again with the fixes; retry to run the fix again once the reason it stopped is fixed; reanalyze to run the analysis again, for example after it stopped or after new data became available; finish to go on to consolidate without more fixes; stop to end the run.",
+        "choices": {
+          "fix": "bug-fix-plan",
+          "retest": "test",
+          "retry": "bug-fix",
+          "reanalyze": "bug-analysis",
+          "finish": "consolidate",
+          "stop": null
+        }
+      }
+    },
+    {
+      "name": "consolidate",
+      "skill": "slice:consolidate",
+      "executionMode": "fork",
+      "params": {
+        "context": "",
+        "archivePath": "./.slicewright/slices",
+        "knowledgeAgents": [
+          {
+            "name": "spec",
+            "agent": "general-purpose",
+            "executionMode": "fork",
+            "context": "The living specification in `product/spec/`: merge the slice's spec.md into the page of each capability it touches, and create the page of a new capability. Add its requirements and acceptance criteria, change the ones the slice changed, and remove the ones it removed, so each page describes how the system behaves now, not the change. Leave out the slice's own ids, open questions and assumptions. Under Limitations on each page, list what a person accepted in code-reviews.md, test-reports.md or bug-analyses.md that users of that capability can notice, with the reason, and remove the limitations this slice lifted."
+          },
+          {
+            "name": "architecture",
+            "agent": "general-purpose",
+            "executionMode": "fork",
+            "context": "The architecture views in `architecture/`: `context.md`, `building-blocks.md`, `runtime.md` and `deployment.md`. Change a view only where the slice's design.md and its code change what the view shows: a new or changed part, interface, neighbor, key flow or environment. Write nothing otherwise. Draw a diagram, when one helps, as Mermaid C4 or a sequence diagram."
+          },
+          {
+            "name": "concepts",
+            "agent": "general-purpose",
+            "executionMode": "fork",
+            "context": "The cross-cutting rules in `architecture/concepts.md`: add or sharpen a rule only when the slice shows one that the code should follow everywhere, such as a convention from design.md, or a root cause in bug-analyses.md that would recur elsewhere, stated as the rule and the reason. Never record a single bug. Write nothing otherwise."
+          },
+          {
+            "name": "adr",
+            "agent": "general-purpose",
+            "executionMode": "fork",
+            "context": "Decision records in `architecture/decisions/`: for each significant decision in the slice's design.md, one new record, `NNNN-<title>.md`, numbered after the last one: its context, the decision, the alternatives considered and why they were rejected, and its consequences. When a decision replaces an earlier record, mark that record as superseded and link the two."
+          },
+          {
+            "name": "risks",
+            "agent": "general-purpose",
+            "executionMode": "fork",
+            "context": "Risks and technical debt in `architecture/risks.md`, one table: each review finding and test that a person deferred, and each root cause in bug-analyses.md left open, with what it risks, the reason, the owner and the date when given. Remove the rows of what this slice fixed. Never add a finding no person decided on."
+          },
+          {
+            "name": "overview",
+            "agent": "general-purpose",
+            "executionMode": "fork",
+            "context": "The overview in `overview/`: product.md, tech.md and structure.md. Change a page only when the slice changes what the product does for its users, the technology it uses, or how the code is organized, and write nothing otherwise. Create a missing page only when the slice gives enough to write it."
+          },
+          {
+            "name": "index",
+            "agent": "general-purpose",
+            "executionMode": "fork",
+            "context": "Update the `index.md` of every folder in which the staged pages add or remove a page, listing each page with a one-line description, and add an entry at the top of `log.md`: `## <date>: <the slice's title>`, then one line per page the slice changed, and where its records are kept. Keep a short 'How to read' part at the top of the root `index.md`: where to start, the structure and what each part is for, and the conventions a reader relies on, as the documentation source's context describes them. Change it only when they changed."
+          },
+          {
+            "name": "instructions",
+            "agent": "general-purpose",
+            "executionMode": "fork",
+            "context": "Runs last. Keep the documentation block in the project's root `AGENTS.md`, between `<!-- slicewright:knowledge -->` and `<!-- /slicewright:knowledge -->`: a `## Project documentation` heading; one line per documentation source with its name, where it is or how to reach it, and where to start; and one line saying that a slice in progress keeps its unpublished documentation changes in `<activeSlicePath>/docs/`, at the same paths, to be read first, and that a source that can't be reached is noted as an assumption without stopping the work. Point to the documentation and never copy its content. Replace only what is between the markers; the first time, add the block at the end of the file, and when there is no `AGENTS.md`, create it with only the block. Never change `CLAUDE.md` or anything else in `AGENTS.md`. `AGENTS.md` isn't part of the documentation: write it in place, not staged."
+          }
+        ]
+      }
+    },
+    {
+      "name": "release",
+      "skill": "slice:deploy",
+      "executionMode": "fork",
+      "params": {
+        "context": "Push the slice's branch to origin. Then open a pull request against `master` with `gh pr create`: the slice's title as its title, and a body with a short summary from spec.md and the slice's entry in `.slicewright/slices/index.md`, ending with `Closes #<number>` when input.md names an issue. When the branch already has a pull request, update it instead. Report its URL as the endpoint."
+      }
+    }
+  ]
+}

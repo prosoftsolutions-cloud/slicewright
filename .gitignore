@@ -1,0 +1,4 @@
+/slice/
+.slicewright/stable/
+.slicewright/*.local.json
+.claude/settings.local.json
