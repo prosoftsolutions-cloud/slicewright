@@ -4,10 +4,7 @@ A Claude Code marketplace with one plugin, `slice`, which runs one feature at a 
 
 ## Layout
 
-- `.claude-plugin/marketplace.json`: the marketplace
-- `plugins/slice/.claude-plugin/plugin.json`: the plugin manifest
-- `plugins/slice/defaults.json`: the default configuration, `sharedParams` and `pipeline`, and the reference for every stage's params
-- `plugins/slice/skills/<name>/SKILL.md`: one skill per folder. `new`, `resume` and `configure` are the user's commands. The others are internal, with `user-invocable: false`, and `run`, the pipeline runner, runs them.
+The layout is in [doc/overview/structure.md](doc/overview/structure.md).
 
 ## Design rules
 
@@ -30,3 +27,10 @@ A Claude Code marketplace with one plugin, `slice`, which runs one feature at a 
 - `claude plugin validate .` and `claude plugin validate plugins/slice` must both pass.
 - To see a change work, run the pipeline headless on a scratch project outside this repo, with `claude -p "/slice:resume" --plugin-dir <this repo>/plugins/slice --permission-mode acceptEdits --allowedTools "<what the stages need>"`. A headless run can't answer permission prompts, so allow up front the skills and commands its stages use.
 - `/slice:configure` copies `defaults.json` into a project, so a change to the defaults doesn't reach a project that already has its own `.slicewright/config.json`.
+
+<!-- slicewright:knowledge -->
+## Project documentation
+
+- **docs**: the OKF bundle in `./doc`. Start at `doc/index.md`.
+- A slice in progress keeps its unpublished documentation changes in `./slice/docs/`, at the same paths. Read those first. If a source can't be reached, note it as an assumption and keep working.
+<!-- /slicewright:knowledge -->

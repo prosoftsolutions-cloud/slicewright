@@ -2,6 +2,37 @@
   "permissions": {
     "deny": [
       "Edit(/.slicewright/stable/**)"
+    ],
+    "allow": [
+      "Skill(slice:run)",
+      "Skill(slice:tracking)",
+      "Bash(date:*)",
+      "Skill(slice:intake)",
+      "Skill(slice:clarify)",
+      "Skill(slice:human)",
+      "Skill(slice:design)",
+      "Skill(slice:plan)",
+      "Skill(slice:implement)",
+      "Skill(slice:review)",
+      "Skill(slice:test)",
+      "Skill(slice:diagnose)",
+      "Skill(slice:consolidate)",
+      "Skill(slice:deploy)",
+      "Bash(claude plugin validate:*)",
+      "Bash(jq:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(git rev-parse:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git restore:*)",
+      "Bash(cp:*)",
+      "Bash(git push:*)",
+      "Bash(gh pr create:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh pr edit:*)"
     ]
   }
 }
