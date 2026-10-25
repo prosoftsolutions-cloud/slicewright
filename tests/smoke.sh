@@ -792,7 +792,19 @@ cmd_wait() {
         continue
       fi
       say "ended: the background run stopped without finishing; checks evaluated now"
-      report
+      if [ -z "$wt_pid" ]; then
+        # No run started here: write nothing, as check does.
+        report
+        exit 1
+      fi
+      # The run started and its process is gone: record it as ended, as
+      # session_part does, with ended written last.
+      load_result
+      record cost_usd "$COST"
+      record duration_ms "$DURATION"
+      report >"$RUN/checks.txt"
+      printf '%s\n' 1 >"$RUN/ended"
+      cat "$RUN/checks.txt"
       exit 1
     fi
     if [ "$wt_elapsed" -ge "$WAIT_SECONDS" ]; then
