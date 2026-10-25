@@ -491,10 +491,10 @@
     },
     {
       "name": "release",
-      "skill": "TBD",
+      "skill": "slice:human",
       "executionMode": "inline",
       "params": {
-        "context": ""
+        "context": "This stage stands in until the project says what releasing a slice means. The slice has been consolidated: present its title, its source from input.md when it has one, and what it leaves open: the decisions deferred in code-reviews.md and test-reports.md, with their owners and dates, and the causes left open in bug-analyses.md. Then suggest the steps that would release the slice in this project, from what the project shows, such as its delivery pipeline, its deployment targets and the source in input.md: for example handing the change over for review, deploying it, telling people, closing the source, and filing what is left open where the project tracks its work. Suggest writing them in the project's configuration in `.slicewright/`, in place of this stage, and show the stages to write: a `slice:deploy` stage whose context lists the steps it runs, and a `slice:human` stage for the steps a person does. Do none of the steps yourself. Then the user confirms that the slice is released or that nothing more is needed; that answer passes."
       }
     }
   ]
