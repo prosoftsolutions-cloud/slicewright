@@ -2,9 +2,24 @@
 
 An AI agent can write a feature in one go, but the result is hard to trust: the spec was never written down, nobody checked the design, the tests ran against nothing, and the documentation falls behind.
 
-Slicewright runs one feature at a time, a *slice*, through the steps a careful team would take: a spec with acceptance criteria, a design and a plan, implementation in small tasks with quality gates, review by separate agents, deployment and tests, root-cause bug fixing, and documentation. Every step leaves a record, and a person decides at each gate. Every stage, agent and rule is configurable.
+Slicewright runs one feature at a time, a *slice*, through a pipeline of steps, and a person decides at each gate. By default the steps are a spec, a design and a plan, implementation with quality gates, review, deployment and tests, root-cause bug fixing, and documentation. Every step leaves a record.
 
 Status: 0.1.0, experimental.
+
+## Why Slicewright
+
+- **Iterative.** One thin slice at a time, end to end: from the request to code that is tested, reviewed and documented. The product grows slice by slice, and each slice starts from what the earlier ones left: the published documentation and, when it hunts a bug, the records of past slices with their decisions and root causes.
+- **Zero upfront load.** There is no product-wide spec, architecture document or setup to write before the first feature: the defaults work as they are, and a one-sentence request is enough to start. A slice writes only the spec and the design it needs, and at the end they go into the project's documentation, so the documentation builds up as you go.
+- **Your own pipeline.** The pipeline is configuration, not code: a list of stages, each a skill with rules in plain language. The default pipeline is a starting point. Build the one your team works by: drop stages, add gates, and choose who reviews, how you deploy and what you test.
+
+For example, a lean pipeline for small changes, with no spec or design stage and one gate after the review:
+
+```mermaid
+flowchart LR
+  intake --> plan --> implement --> review --> G{{decide}}
+  G -- ship --> deploy
+  G -- re-plan --> plan
+```
 
 ## Install
 
@@ -15,49 +30,13 @@ In Claude Code:
 /plugin install slice@slicewright
 ```
 
-## Requirements
-
-- Claude Code. Slicewright is tested with 2.1.310.
-- A project under version control. The default configuration checks at the start that the sources are clean and current, and commits the documentation and the slice's records at the end.
-- Permission rules for the stages' skills and commands, so a run doesn't stop at every prompt. `/slice:configure` proposes them.
-
-**Cost and time.** In our test runs on a small sample project, a notes API, with Sonnet, the stages of a slice with one small feature added up to about $6 to $8 and 20 to 30 minutes of agent time, plus the time a person spends at the gates. Each round of review fixes added about $2.50, and each bug-fix iteration, with its redeploy and test run, about $3 to $5. Expect more for a bigger project or feature, or a larger model.
-
 ## Quick start
 
-1. `/slice:configure` creates `.slicewright/config.json` from the defaults, sets up the project's documentation, and proposes the permission rules.
+1. `/slice:configure` creates `.slicewright/config.json` from the defaults, sets up the project's documentation, and proposes permission rules so the stages don't stop at prompts.
 2. `/slice:new <feature request>` starts a slice in `./slice` and runs the pipeline. At each gate it asks you in the conversation.
 3. `/slice:resume` continues when the run has stopped: after an error, a pause, or a closed session.
 
 `/slice:new` and `/slice:resume` take `--config <name>` to use another configuration.
-
-## The pipeline
-
-```mermaid
-flowchart TD
-  intake --> clarify --> SR{{spec-review}}
-  SR --> design --> plan --> DR{{design-review}}
-  DR -- approve --> implement
-  implement -- stopped --> ID{{implement-decision}}
-  implement --> review --> RD{{review-decision}}
-  RD -- fix --> RFP[review-fix-plan] --> RF[review-fix] --> review
-  RD -- ship --> deploy --> test --> TD{{test-decision}}
-  TD -- fix --> BA[bug-analysis] --> BFP[bug-fix-plan] --> BF[bug-fix] --> BD{{bug-fix-decision}}
-  BD -- redeploy --> deploy
-  TD -- finish --> consolidate
-  BD -- finish --> consolidate
-  consolidate --> REL{{release}}
-```
-
-The hexagons are gates, where you decide. A gate can also send the slice back to the plan or the design, run a stage again, or stop.
-
-1. **Start:** `intake` resolves the request, and `clarify` writes the spec, which **spec-review** puts to you.
-2. **Design:** `design` and `plan` write the design and the tasks, then **design-review**: approve, re-plan or re-design.
-3. **Build:** `implement` works through the tasks one by one, with quality gates. When it stops, **implement-decision**.
-4. **Review:** `review` runs the reviewers, then **review-decision**: fix, ship, re-plan or re-design. Fixes go through `review-fix-plan`, `review-fix` and **review-fix-decision**.
-5. **Verify:** `deploy` and `test`, then **test-decision**: fix, finish, retry or redeploy.
-6. **Fix bugs:** `bug-analysis` finds the root causes with the configured instruments, `bug-fix-plan` and `bug-fix` fix them, then **bug-fix-decision** shows each iteration's results, so you can see whether the loop is converging.
-7. **Finish:** `consolidate` publishes the documentation and keeps the slice's records. **release** stands in until the project configures its own release steps.
 
 ## Concepts
 
@@ -75,24 +54,17 @@ The hexagons are gates, where you decide. A gate can also send the slice back to
 - **Task types:** the kinds of work a plan splits a feature into, each with its own rules, in `sharedParams.taskTypes`. The defaults are infrastructure, data storage, backend, frontend, end-to-end tests and documentation.
 - **Result:** every stage ends with `result: ok`, `skipped` or `error`, and the runner picks the next stage from it. `status.md` records each one.
 
-## What a slice leaves behind
+## Default pipeline
 
-| File in `./slice` | Written by | Read by |
-|---|---|---|
-| `status.md` | the runner, after each stage | `/slice:resume`, and you |
-| `input.md` | `intake`: the request, resolved | every stage |
-| `spec.md` | `clarify`, and spec-review with your answers | design, plan, review, bug analysis |
-| `design.md` | `design`, and the gates with their review notes | plan, review, bug analysis |
-| `plan.md`, `tasks/` | `plan`: the tasks, each with its files and checks | implement |
-| `design-reviews.md` | `clarify`, `design` and `plan`: their reviewers' rounds | spec-review, design-review |
-| `implement.md` | `implement`: each run, with its tasks and quality gates | review, consolidate |
-| `code-reviews.md` | `review`: each round's findings, with your decisions | review-decision, review-fix-plan |
-| `review-round-<n>.md` | `review-fix-plan`: the fixes for round n | review-fix |
-| `deployments.md` | `deploy`: what was deployed, where | test, bug analysis |
-| `test-reports.md` | `test`: each run, with your decision on each failed test | test-decision, bug analysis |
-| `bug-analyses.md` | `bug-analysis`: the root causes, round by round | bug-fix-plan, bug-fix-decision |
-| `bug-round-<n>.md` | `bug-fix-plan`: the fixes for round n | bug-fix |
-| `docs/` | the stages that change documentation: the pages this slice changed | every stage. `consolidate` publishes them. |
+The plugin ships this pipeline, and `/slice:configure` copies it into the project for you to change. Gates where you decide are in bold. A gate can also send the slice back to the plan or the design, run a stage again, or stop.
+
+1. **Start:** `intake` resolves the request, and `clarify` writes the spec, which **spec-review** puts to you.
+2. **Design:** `design` and `plan` write the design and the tasks, then **design-review**: approve, re-plan or re-design.
+3. **Build:** `implement` works through the tasks one by one, with quality gates. When it stops, **implement-decision**.
+4. **Review:** `review` runs the reviewers, then **review-decision**: fix, ship, re-plan or re-design. Fixes go through `review-fix-plan`, `review-fix` and **review-fix-decision**.
+5. **Verify:** `deploy` and `test`, then **test-decision**: fix, finish, retry or redeploy.
+6. **Fix bugs:** `bug-analysis` finds the root causes with the configured instruments, `bug-fix-plan` and `bug-fix` fix them, then **bug-fix-decision** shows each iteration's results, so you can see whether the loop is converging.
+7. **Finish:** `consolidate` publishes the documentation and keeps the slice's records. **release** stands in until the project configures its own release steps.
 
 ## Configuration
 
