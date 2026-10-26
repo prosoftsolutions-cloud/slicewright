@@ -24,8 +24,10 @@ The layout is in [doc/overview/structure.md](doc/overview/structure.md).
 
 ## Checking a change
 
-- `claude plugin validate .` and `claude plugin validate plugins/slice` must both pass.
-- To see a change work, run the pipeline headless on a scratch project outside this repo, with `claude -p "/slice:resume" --plugin-dir <this repo>/plugins/slice --permission-mode acceptEdits --allowedTools "<what the stages need>"`. A headless run can't answer permission prompts, so allow up front the skills and commands its stages use.
+- `sh tests/static.sh` checks the plugin without a model: both `claude plugin validate` runs, every JSON file, the pipeline in `defaults.json`, and each skill's frontmatter.
+- `sh tests/selftest.sh` checks those checks, and the smoke checks, on broken copies.
+- `sh tests/smoke.sh` runs the pipeline headless on a copy of the sample project and checks what the run leaves. It is too slow for a task or a quality gate: the test stage runs it, or you do, by hand.
+- [doc/overview/testing.md](doc/overview/testing.md) says what each one checks, how to run it, and how to add a check.
 - `/slice:configure` copies `defaults.json` into a project, so a change to the defaults doesn't reach a project that already has its own `.slicewright/config.json`.
 
 <!-- slicewright:knowledge -->

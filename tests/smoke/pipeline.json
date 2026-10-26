@@ -1,0 +1,8 @@
+{
+  "stages": ["intake", "clarify", "design", "plan", "implement", "review", "consolidate"],
+  "overrides": {
+    "intake": {
+      "context": "The project's version control is git, with no remote, and its AGENTS.md names the tools to work with it. Ensure that the working tree is clean, with no uncommitted changes; otherwise fail the check. Don't fetch from a remote or compare with one."
+    }
+  }
+}

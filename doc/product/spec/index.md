@@ -8,4 +8,4 @@ What the system does now, one page per capability, each with its known limitatio
 
 ## Pages
 
-None yet.
+- [Plugin tests](plugin-tests.md): the tests that check a new version of the plugin before it is merged, with their requirements, acceptance criteria and limitations
