@@ -59,8 +59,20 @@ run 'greet.sh --shout Ada Bob' '' 'greet: too many arguments' 2 --shout Ada Bob
 run 'greet.sh Ada --shout' '' 'greet: too many arguments' 2 Ada --shout
 run 'greet.sh --shout -x' '' 'greet: unknown option: -x' 2 --shout -x
 run 'greet.sh Ada' 'Hello, Ada!' '' 0 Ada
+run 'greet.sh' 'Hello, world!' '' 0
+run "greet.sh ''" 'Hello, world!' '' 0 ''
+run 'greet.sh Ada Bob' '' 'greet: too many arguments' 2 Ada Bob
 run 'greet.sh -x' '' 'greet: unknown option: -x' 2 -x
+run 'greet.sh -x Ada' '' 'greet: unknown option: -x' 2 -x Ada
 run 'greet.sh --shout ada-lovelace_42' 'HELLO, ADA-LOVELACE_42!' '' 0 --shout ada-lovelace_42
+
+# Only a to z become A to Z. This case runs last, under a UTF-8 locale, where
+# an upper-caser that follows the locale would also change the e with diaeresis.
+# Octal escapes keep this file ASCII.
+LC_ALL=C.UTF-8
+export LC_ALL
+zoe=$(printf 'zo\303\253')
+run "greet.sh --shout $zoe" "$(printf 'HELLO, ZO\303\253!')" '' 0 --shout "$zoe"
 
 found=$(find "$dir/doc" -type f -name '*.md' -exec grep -l -e '--shout' {} + 2>/dev/null)
 if [ -n "$found" ]; then
