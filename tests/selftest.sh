@@ -252,6 +252,27 @@ static_run
 static_fails '/.claude-plugin/plugin.json: '
 report_case
 
+# static/checker: the frontmatter checker itself fails. static.sh reads its
+# checkers from its own repo, so the case copies the manifests, the plugin and
+# the static checks into COPY, breaks the copy's skill.awk, and runs the copy's
+# static.sh on the copy's plugin.
+begin static/checker
+COPY="$W/$SLUG"
+step "make the repo copy's tests folder" mkdir -p "$COPY/tests"
+step "copy .claude-plugin" cp -R "$REPO/.claude-plugin" "$COPY/.claude-plugin"
+step "copy plugins" cp -R "$REPO/plugins" "$COPY/plugins"
+step "copy static.sh" cp "$REPO/tests/static.sh" "$COPY/tests/static.sh"
+step "copy tests/static" cp -R "$REPO/tests/static" "$COPY/tests/static"
+step "break skill.awk" write_file "$COPY/tests/static/skill.awk" "{ this is not awk"
+broke differ "$COPY/tests/static/skill.awk" "$REPO/tests/static/skill.awk"
+if [ -z "$WHY" ]; then
+  OUT="$W/$SLUG.out"
+  sh "$COPY/tests/static.sh" </dev/null >"$OUT" 2>&1
+  STATUS=$?
+fi
+static_fails '/skills/plan/SKILL.md: '
+report_case
+
 # --- Smoke level: smoke.sh check on a broken run folder ---
 
 # The smoke source, built once: the sample, with the finished-run fixture laid on top.

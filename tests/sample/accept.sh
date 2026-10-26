@@ -1,7 +1,7 @@
 #!/bin/sh
 # Acceptance check for the request in request.md, run against a copy of the sample project.
 # Usage: sh accept.sh FOLDER
-# It runs FOLDER/greet.sh and reads FOLDER/doc, and never writes to FOLDER.
+# It runs FOLDER/greet.sh and reads FOLDER/doc/product/spec/greeting.md, and never writes to FOLDER.
 # It prints "ok - CASE" or "not ok - CASE: what it expected and got" for each case, then the totals.
 # It exits 0 when all pass, 1 when any fails, and 2 on wrong usage or a missing folder or greet.sh.
 
@@ -35,20 +35,52 @@ fail() {
   printf 'not ok - %s: %s\n' "$1" "$2"
 }
 
+nl='
+'
+
+# visible TEXT: prints TEXT with each newline written as \n, for a failure message.
+visible() {
+  rest=$1
+  text=
+  while :; do
+    case $rest in
+      *"$nl"*)
+        text="$text${rest%%"$nl"*}\\n"
+        rest=${rest#*"$nl"}
+        ;;
+      *)
+        printf '%s' "$text$rest"
+        return
+        ;;
+    esac
+  done
+}
+
 # run CASE WANT_STDOUT WANT_STDERR WANT_STATUS [GREET_ARGS...]
+# Each stream must be exactly the wanted line and its newline, or empty when
+# nothing is wanted. The x printed after greet.sh keeps its trailing newlines,
+# which $(...) would remove.
 run() {
   name=$1
   want_out=$2
   want_err=$3
   want_status=$4
   shift 4
-  out=$(sh "$greet" "$@" 2>/dev/null </dev/null)
+  if [ -n "$want_out" ]; then
+    want_out="$want_out$nl"
+  fi
+  if [ -n "$want_err" ]; then
+    want_err="$want_err$nl"
+  fi
+  out=$(sh "$greet" "$@" 2>/dev/null </dev/null; rc=$?; printf x; exit "$rc")
   status=$?
-  err=$(sh "$greet" "$@" 2>&1 >/dev/null </dev/null)
+  out=${out%x}
+  err=$(sh "$greet" "$@" 2>&1 >/dev/null </dev/null; printf x)
+  err=${err%x}
   if [ "$out" = "$want_out" ] && [ "$err" = "$want_err" ] && [ "$status" = "$want_status" ]; then
     pass "$name"
   else
-    fail "$name" "expected status $want_status, stdout \"$want_out\", stderr \"$want_err\"; got status $status, stdout \"$out\", stderr \"$err\""
+    fail "$name" "expected status $want_status, stdout \"$(visible "$want_out")\", stderr \"$(visible "$want_err")\"; got status $status, stdout \"$(visible "$out")\", stderr \"$(visible "$err")\""
   fi
 }
 
@@ -74,11 +106,11 @@ export LC_ALL
 zoe=$(printf 'zo\303\253')
 run "greet.sh --shout $zoe" "$(printf 'HELLO, ZO\303\253!')" '' 0 --shout "$zoe"
 
-found=$(find "$dir/doc" -type f -name '*.md' -exec grep -l -e '--shout' {} + 2>/dev/null)
-if [ -n "$found" ]; then
-  pass 'doc mentions the option'
+# The request asks for the option in this page, not anywhere under doc/.
+if grep -q -e '--shout' "$dir/doc/product/spec/greeting.md" 2>/dev/null; then
+  pass 'doc/product/spec/greeting.md mentions the option'
 else
-  fail 'doc mentions the option' 'expected a .md file under doc/ that mentions --shout; found none'
+  fail 'doc/product/spec/greeting.md mentions the option' 'expected doc/product/spec/greeting.md to mention --shout; it does not, or is missing'
 fi
 
 printf '%s passed, %s failed\n' "$passed" "$failed"

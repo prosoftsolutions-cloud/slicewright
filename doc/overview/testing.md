@@ -19,7 +19,7 @@ Its four checks, in order:
 - `validate`: `claude plugin validate` on the repo and on the plugin folder. Only the exit status counts, so warnings pass.
 - `json`: every `*.json` file under the plugin folder and under `.claude-plugin/` holds exactly one JSON value. An empty file fails, and so does a file with several values.
 - `defaults`: the pipeline in the folder's `defaults.json`, checked by `tests/static/defaults.jq`, which holds every rule. Among them: each stage has a name of its own and an `executionMode` of `inline` or `fork`, every `skill` value is `TBD` or names a skill folder, and every `next`, `onError` and choice names a stage.
-- `skills`: each `SKILL.md`'s frontmatter, checked by `tests/static/skill.awk`. The `name` equals the folder, the `description` isn't empty, and every skill except `new`, `resume` and `configure` has `user-invocable: false`.
+- `skills`: each `SKILL.md`'s frontmatter, checked by `tests/static/skill.awk`. The `name` equals the folder, the `description` isn't empty, and every skill except `new`, `resume` and `configure` has `user-invocable: false`. When `skill.awk` itself fails on a file, the check fails for that file.
 
 Why: it catches a broken stage, a dangling `next`, `onError` or choice, and frontmatter that `claude plugin validate` misses. It needs no model, so it is cheap enough for every quality gate.
 
@@ -37,13 +37,13 @@ Exit status: 0 when every check passes, and 1 when any fails. It is 2 when the c
 
 Its work folder is `mktemp -d "${TMPDIR:-/tmp}/slicewright-selftest.XXXXXX"`, and every copy goes in it. The folder is removed only when every case passes. Otherwise the self-test keeps it and prints `kept: <folder>`.
 
-- The `static/…` cases break a copy of `plugins/slice` and run `sh tests/static.sh` on it. A broken case must exit 1 with a `FAIL` line that names its subject.
+- The `static/…` cases break a copy of `plugins/slice` and run `sh tests/static.sh` on it. `static/checker` breaks a checker instead: `static.sh` reads its checkers from its own repo, so the case copies the parts `static.sh` needs and runs the copy's `static.sh`. A broken case must exit 1 with a `FAIL` line that names its subject.
 - The `smoke/…` cases break a run folder that `prepare` made from the sample with the fixture on top, and run `sh tests/smoke.sh check` on it. A broken case must fail its own check and pass every other check from 3 to 8.
 - `static/unbroken` must exit 0.
 - `smoke/unbroken` must fail checks 1 and 2, which need a real session, and pass checks 3 to 8. Checks 1 and 2 fail in every smoke case.
 - Each break must change something. A break that changed nothing is `MISSED`.
 
-The 14 cases:
+The 15 cases:
 
 | Case | Break | Must show |
 |---|---|---|
@@ -55,6 +55,7 @@ The 14 cases:
 | `static/name` | `name: planner` in `skills/plan/SKILL.md` | `/skills/plan/SKILL.md` |
 | `static/user-invocable` | the `user-invocable: false` line removed from `skills/review/SKILL.md` | `/skills/review/SKILL.md` |
 | `static/json` | the last line of the plugin's `.claude-plugin/plugin.json` removed, so it doesn't parse | `/.claude-plugin/plugin.json` |
+| `static/checker` | `tests/static/skill.awk` made unparsable, in a copy of the repo's manifests, plugin and static checks, whose own `static.sh` runs | `/skills/plan/SKILL.md` |
 | `smoke/unbroken` | none | `FAIL` for checks 1 and 2, `PASS` for 3 to 8 |
 | `smoke/stage-failed` | the `review` row of `slice/status.md` set to `failed` | `FAIL 3 status`, and 4 to 8 pass |
 | `smoke/record-removed` | `slice/plan.md` removed | `FAIL 4 records`, and 3 and 5 to 8 pass |
@@ -62,7 +63,7 @@ The 14 cases:
 | `smoke/uncommitted` | an uncommitted `notes.txt` | `FAIL 7 clean-tree`, and 3 to 6 and 8 pass |
 | `smoke/index-entry` | `.slicewright/slices/index.md` cut to `# Slices`, and committed | `FAIL 8 index`, and 3 to 7 pass |
 
-Output: one line for each case, `ok <case>`, `caught <case>: <the matching line>`, or `MISSED <case>: <why>` followed by the case's output, indented. The last line is `selftest: passed, 14 cases` or `selftest: failed, <k> of 14 cases`.
+Output: one line for each case, `ok <case>`, `caught <case>: <the matching line>`, or `MISSED <case>: <why>` followed by the case's output, indented. The last line is `selftest: passed, 15 cases` or `selftest: failed, <k> of 15 cases`.
 
 Exit status: 0 when every case passes, and 1 when a case is missed. It is 2 when a tool is missing, or when it got an argument, with `selftest: <reason>` on stderr. Besides `claude`, `jq` and `git`, it needs `mktemp` and `cmp`.
 
@@ -154,6 +155,8 @@ The smoke test also runs by hand. It never runs in a task's Verify or a quality 
 - `tests/sample/request.md` is the request. It asks for a `--shout` option, with every choice stated, so that clarify has no open question.
 - `sh tests/sample/accept.sh <project folder>` is the acceptance check.
   - It sits outside `project/`, and is never copied into a run, so the pipeline never sees or changes it. Check 6 runs it from the repo, against a scratch copy of the run's project.
+  - Each case compares stdout and stderr byte for byte: the wanted line with its newline, or nothing. An extra blank line fails.
+  - Its last case checks that `doc/product/spec/greeting.md`, the page the request names, mentions `--shout`.
   - It never writes to the folder. It exits 0 when every case passes, 1 when any fails, and 2 on wrong usage, or when the folder or its `greet.sh` is missing.
   - It fails on the unchanged sample.
 

@@ -118,8 +118,12 @@ for dir in "$plugin"/skills/*/; do
                 *" $name "*) internal=0 ;;
                 *) internal=1 ;;
             esac
-            output=$(awk -v file="$file" -v folder="$name" -v internal="$internal" -f "$repo/tests/static/skill.awk" "$file")
-            fail_lines "skills: " "$output"
+            output=$(awk -v file="$file" -v folder="$name" -v internal="$internal" -f "$repo/tests/static/skill.awk" "$file" 2>/dev/null)
+            if [ "$?" -eq 0 ]; then
+                fail_lines "skills: " "$output"
+            else
+                fail "skills: $file: tests/static/skill.awk failed on it"
+            fi
         else
             fail "skills: $plugin/skills/$name: has no SKILL.md"
         fi
