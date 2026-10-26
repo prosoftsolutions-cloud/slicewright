@@ -18,3 +18,7 @@ type: index
 - [Overview](overview/index.md): the product, its technology and how the code is organized
 - [Product](product/index.md): what the system does, and the documentation for users
 - [Architecture](architecture/index.md): the arc42 views, cross-cutting rules, decisions and risks
+
+## Pages
+
+- [Log](log.md): the consolidated slices, newest first, each with the pages it changed and where its records are kept
