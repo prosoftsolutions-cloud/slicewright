@@ -6,6 +6,8 @@ A Claude Code marketplace with one plugin, `slice`, which runs one feature at a 
 
 The layout is in [doc/overview/structure.md](doc/overview/structure.md).
 
+`sh start-slice.sh [<issue number>]` prepares the working copy for a new slice and starts Claude Code with the stable plugin. It is for the person: an agent never runs it, because it switches branches and starts a session.
+
 ## Design rules
 
 - The plugin ships mechanisms, and the project configures them. A choice that a project could make differently belongs in the configuration, not in a skill.
