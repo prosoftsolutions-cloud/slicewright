@@ -1,3 +1,4 @@
+#!/bin/sh
 # The smoke level of the plugin's tests. It runs the pipeline headless on a
 # copy of the sample project, within a time limit, and checks what the run
 # leaves. Run it from the repo root as `sh tests/smoke.sh`: see usage below.

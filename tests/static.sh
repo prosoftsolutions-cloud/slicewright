@@ -1,3 +1,4 @@
+#!/bin/sh
 # Static level: checks a plugin folder without a model.
 # It runs claude plugin validate on the repo and on the plugin folder, checks that every JSON file
 # parses, checks the pipeline in defaults.json, and checks each skill's frontmatter.

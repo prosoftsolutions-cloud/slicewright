@@ -1,3 +1,4 @@
+#!/bin/sh
 # The self-test of the plugin's tests. It breaks one thing at a time, in
 # temporary copies, and shows that the static checks (tests/static.sh) and the
 # smoke checks (tests/smoke.sh check) catch each case. It starts no Claude

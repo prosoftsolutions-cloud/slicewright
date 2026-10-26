@@ -8,7 +8,7 @@ How the plugin in `plugins/slice` is tested before a new version is merged to `m
 
 ## Levels
 
-There are three: the static level, the self-test and the smoke level. They need the `claude` CLI, `jq`, `git` and a POSIX `sh` with its standard utilities, and nothing else. Each command runs from the repo root as `sh tests/<name>.sh`. The tests live in `tests/`, outside the plugin folder, as [Structure](structure.md) says.
+There are three: the static level, the self-test and the smoke level. They need the `claude` CLI, `jq`, `git` and a POSIX `sh` with its standard utilities, and nothing else. Each command runs from the repo root as `sh tests/<name>.sh`, or as `tests/<name>.sh`: the three scripts are executable and start with `#!/bin/sh`. The tests live in `tests/`, outside the plugin folder, as [Structure](structure.md) says.
 
 ### Static level
 
