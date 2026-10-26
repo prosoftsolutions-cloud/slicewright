@@ -803,9 +803,13 @@ cmd_wait() {
       record cost_usd "$COST"
       record duration_ms "$DURATION"
       report >"$RUN/checks.txt"
-      printf '%s\n' 1 >"$RUN/ended"
+      wt_rc=$?
+      if [ "$wt_rc" -ne 0 ]; then
+        wt_rc=1
+      fi
+      printf '%s\n' "$wt_rc" >"$RUN/ended"
       cat "$RUN/checks.txt"
-      exit 1
+      exit "$wt_rc"
     fi
     if [ "$wt_elapsed" -ge "$WAIT_SECONDS" ]; then
       say "running: the session has not ended yet"
