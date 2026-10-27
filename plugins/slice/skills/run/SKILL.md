@@ -2,7 +2,7 @@
 name: run
 description: Internal Slicewright pipeline runner. Called by /slice:new and /slice:resume, never on its own.
 user-invocable: false
-allowed-tools: Read(/${CLAUDE_PLUGIN_ROOT}/defaults.json) Read(~/.slicewright/**) Bash(date:*) Skill(slice:intake) Skill(slice:clarify) Skill(slice:design) Skill(slice:plan) Skill(slice:implement) Skill(slice:review) Skill(slice:deploy) Skill(slice:test) Skill(slice:diagnose) Skill(slice:consolidate) Skill(slice:human) Skill(slice:route) Skill(slice:tracking)
+allowed-tools: Read(/${CLAUDE_PLUGIN_ROOT}/defaults.json) Read(~/.slicewright/**) Bash(date:*) Skill(slice:intake) Skill(slice:clarify) Skill(slice:design) Skill(slice:plan) Skill(slice:implement) Skill(slice:review) Skill(slice:deploy) Skill(slice:test) Skill(slice:diagnose) Skill(slice:consolidate) Skill(slice:research) Skill(slice:human) Skill(slice:route) Skill(slice:tracking)
 ---
 
 # Run the pipeline
@@ -62,7 +62,7 @@ For each skill the run will use, look for `Skill(<name>)` in `permissions.allow`
 ### `new`
 
 1. If `<activeSlicePath>/status.md` or `<activeSlicePath>/input.md` exists, a slice is in progress. Show its title, stage and status from `status.md`, and list the files in `<activeSlicePath>`. Ask the user to choose, and wait for the answer:
-   - **Continue:** go on as in `resume` below. Say that the request typed with `/slice:new` is not used.
+   - **Continue:** when `/slice:new` ran without `--config` and `status.md` records a `config` other than the file you loaded, load that configuration as in section 1, check it as in section 2, and say so. Then go on as in `resume` below. Say that the request typed with `/slice:new` is not used.
    - **Start new:** delete `<activeSlicePath>` with everything in it, then go on with step 2. Never delete when `activeSlicePath` is empty, is the project root, or is outside the project; stop and report instead.
    - **Cancel:** stop.
 2. If the request is empty, ask the user for a one- or two-sentence description of the feature, and wait.
