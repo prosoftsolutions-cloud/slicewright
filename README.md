@@ -36,7 +36,7 @@ In Claude Code:
 2. `/slice:new <feature request>` starts a slice in `./slice` and runs the pipeline. At each gate it asks you in the conversation.
 3. `/slice:resume` continues when the run has stopped: after an error, a pause, or a closed session.
 
-`/slice:new` and `/slice:resume` take `--config <name>` to use another configuration.
+`/slice:new`, `/slice:resume` and `/slice:configure` take `--config <name>` to use another configuration.
 
 ## Concepts
 
@@ -51,6 +51,7 @@ In Claude Code:
   - instruments that investigate failures (`instrumentAgents`)
   - knowledge agents that update the documentation (`knowledgeAgents`)
   - design agents (`designAgents`)
+  - research agents that answer questions from sources (`researchAgents`)
 - **Task types:** the kinds of work a plan splits a feature into, each with its own rules, in `sharedParams.taskTypes`. The defaults are infrastructure, data storage, backend, frontend, end-to-end tests and documentation.
 - **Result:** every stage ends with `result: ok`, `skipped` or `error`, and the runner picks the next stage from it. `status.md` records each one.
 
@@ -65,6 +66,8 @@ The plugin ships this pipeline, and `/slice:configure` copies it into the projec
 5. **Verify:** `deploy` and `test`, then **test-decision**: fix, finish, retry or redeploy.
 6. **Fix bugs:** `bug-analysis` finds the root causes with the configured instruments, `bug-fix-plan` and `bug-fix` fix them, then **bug-fix-decision** shows each iteration's results, so you can see whether the loop is converging.
 7. **Finish:** `consolidate` publishes the documentation and keeps the slice's records. **release** stands in until the project configures its own release steps.
+
+The plugin also ships `slice:research`, a stage that answers the questions in a spec from sources, with cited evidence and a confidence, and writes `research.md` for a person to decide on. It isn't in the default pipeline: the research pipeline under Recipes runs it.
 
 ## Configuration
 
@@ -141,7 +144,17 @@ The contexts of `consolidate`'s `knowledgeAgents` say where each kind of page go
 
 **Drop a stage.** Remove it from `pipeline`, and change every `next`, `onError` and gate choice that names it. The runner checks `next` and `onError` before it starts, and lists what's wrong.
 
-**Another pipeline.** `--config hotfix` loads `hotfix.json` from the same places instead of `config.json`, for example a shorter pipeline in `.slicewright/hotfix.json`.
+**Another pipeline.** `--config <name>` loads `<name>.json` from the same four places instead of `config.json`, so the file repeats what it needs from `config.json`. This repo runs research topics with its research pipeline, `.slicewright/research.json`. Its stages, in order:
+
+1. `intake` resolves the request.
+2. `clarify` writes the questions, and **questions-review** agrees them with you.
+3. `research` answers them from sources, with cited evidence.
+4. **results-review** puts the answers, the recommendation and the follow-ups to you: accept, more research, re-scope or drop.
+5. `file-issues` files the follow-ups you chose as issues.
+6. `consolidate` publishes a research page and, when you took a decision, a decision record.
+7. `release` opens the pull request.
+
+`sh start-slice.sh --config research <issue number>` starts it with `/slice:new --config research <issue number>`, and `/slice:configure --config research --permissions` proposes its permission rules.
 
 ## Documentation
 
