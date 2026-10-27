@@ -1,5 +1,8 @@
-# Checks a plugin's defaults.json, and prints one "<subject>: <problem>" line per problem.
+# Checks a configuration object, a plugin's defaults.json or a project configuration merged onto it,
+# and prints one "<subject>: <problem>" line per problem.
 # Usage: jq -r --argjson skills '<JSON list of skill folder names>' -f tests/static/defaults.jq <plugin>/defaults.json
+#    or: jq -r --argjson skills '<JSON list of skill folder names>' --slurpfile base <plugin>/defaults.json -f tests/static/defaults.jq <configuration file>
+#        which merges the file onto the base with the runner's rule first.
 # It never raises an error on a JSON value: a value that isn't an object where one is expected counts as {}.
 
 def obj: if type == "object" then . else {} end;
@@ -17,7 +20,16 @@ def bad_skills: obj | .. | objects | select(has("skill")) | .skill | select(vali
 
 def names_a_stage($names): . as $value | any($names[]; . == $value);
 
-obj as $root
+# The runner's merge: objects merge key by key at any depth, any other value from $over replaces
+# the one in $base, and a null in $over removes the key.
+def merge($base; $over):
+  if ($base | type) == "object" and ($over | type) == "object" then
+    reduce ($over | keys_unsorted[]) as $key ($base;
+      if $over[$key] == null then del(.[$key]) else .[$key] = merge(.[$key]; $over[$key]) end)
+  else $over end;
+
+(if $ARGS.named | has("base") then merge($ARGS.named.base[0]; .) else . end)
+| obj as $root
 | ($root.sharedParams | obj) as $shared
 | (if $shared.activeSlicePath | text then empty else "sharedParams: activeSlicePath is missing or empty" end),
   ($shared | bad_skills | "sharedParams: skill \(.) names no skill folder"),
