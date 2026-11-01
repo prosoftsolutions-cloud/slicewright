@@ -3,7 +3,9 @@
 # It checks the tools, switches to master and fast-forwards it to origin/master, puts the stable
 # plugin's worktree in .slicewright/stable/ at origin/master, and validates that plugin: what the
 # slice's intake checks. With an issue number, the session starts with /slice:new <number>.
-# Usage: sh start-slice.sh [<issue number>]
+# With --config <name>, the session starts with /slice:new --config <name>, and
+# .slicewright/<name>.json must exist.
+# Usage: sh start-slice.sh [--config <name>] [<issue number>]
 # Exit status: 1 a check failed, 2 couldn't run. Otherwise the script becomes the Claude session.
 
 REMOTE=origin
@@ -29,13 +31,46 @@ say() {
 repo=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P) || cannot_run "cannot find the repo root"
 cd "$repo" || cannot_run "cannot open $repo"
 
-if [ "$#" -gt 1 ]; then
-    cannot_run "too many arguments; usage: sh start-slice.sh [<issue number>]"
+USAGE='usage: sh start-slice.sh [--config <name>] [<issue number>]'
+config=
+config_given=
+issue=
+issue_given=
+while [ "$#" -gt 0 ]; do
+    case $1 in
+        --config)
+            if [ "$#" -lt 2 ]; then
+                cannot_run "--config needs a name; $USAGE"
+            fi
+            config=$2
+            config_given=yes
+            shift 2
+            ;;
+        -*)
+            cannot_run "unknown option $1; $USAGE"
+            ;;
+        *)
+            if [ -n "$issue_given" ]; then
+                cannot_run "too many arguments; $USAGE"
+            fi
+            issue=${1#\#}
+            issue_given=yes
+            case $issue in
+                *[!0-9]*) cannot_run "not an issue number: $1; $USAGE" ;;
+            esac
+            shift
+            ;;
+    esac
+done
+if [ -n "$config_given" ]; then
+    case $config in
+        ''|*/*|*..*) cannot_run "not a configuration name: '$config'; $USAGE" ;;
+    esac
+    case $config in
+        *.json) config_file=.slicewright/$config ;;
+        *) config_file=.slicewright/$config.json ;;
+    esac
 fi
-issue=${1#\#}
-case $issue in
-    *[!0-9]*) cannot_run "not an issue number: $1; usage: sh start-slice.sh [<issue number>]" ;;
-esac
 
 for tool in git gh claude; do
     command -v "$tool" >/dev/null 2>&1 || cannot_run "the $tool command is not installed"
@@ -89,6 +124,10 @@ if ! out=$(claude plugin validate "$plugin" 2>&1); then
 fi
 say "the stable plugin validates"
 
+if [ -n "$config_given" ] && [ ! -f "$config_file" ]; then
+    fail "the configuration $config_file doesn't exist: add it, or run without --config"
+fi
+
 # A slice left in the slice folder: /slice:new asks whether to continue it or start over.
 if [ -f "$SLICE/status.md" ]; then
     title=$(sed -n 's/^title: *//p' "$SLICE/status.md" | sed -n 1p)
@@ -96,14 +135,25 @@ if [ -f "$SLICE/status.md" ]; then
     title=${title%\"}
     stage=$(sed -n 's/^stage: *//p' "$SLICE/status.md" | sed -n 1p)
     status=$(sed -n 's/^status: *//p' "$SLICE/status.md" | sed -n 1p)
-    say "note: ./$SLICE/ holds a slice: \"$title\", at $stage ($status). /slice:new will ask whether to continue it or start over"
+    cfg=$(sed -n 's/^config: *//p' "$SLICE/status.md" | sed -n 1p)
+    if [ -z "$cfg" ]; then
+        cfg=config.json
+    fi
+    say "note: ./$SLICE/ holds a slice: \"$title\", at $stage ($status), with $cfg. /slice:new will ask whether to continue it or start over"
 elif [ -f "$SLICE/input.md" ]; then
     say "note: ./$SLICE/ holds a slice that never finished starting. /slice:new will ask whether to continue it or start over"
 fi
 
+request=/slice:new
+if [ -n "$config_given" ]; then
+    request="$request --config $config"
+fi
 if [ -n "$issue" ]; then
-    say "starting Claude with the stable plugin and /slice:new $issue"
-    exec claude --plugin-dir "$plugin" "/slice:new $issue"
+    request="$request $issue"
+fi
+if [ "$request" != /slice:new ]; then
+    say "starting Claude with the stable plugin and $request"
+    exec claude --plugin-dir "$plugin" "$request"
 fi
 say "starting Claude with the stable plugin"
 exec claude --plugin-dir "$plugin"

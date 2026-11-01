@@ -6,7 +6,7 @@ A Claude Code marketplace with one plugin, `slice`, which runs one feature at a 
 
 The layout is in [doc/overview/structure.md](doc/overview/structure.md).
 
-`sh start-slice.sh [<issue number>]` prepares the working copy for a new slice and starts Claude Code with the stable plugin. It is for the person: an agent never runs it, because it switches branches and starts a session.
+`sh start-slice.sh [--config <name>] [<issue number>]` prepares the working copy for a new slice and starts Claude Code with the stable plugin; `--config research` runs the research pipeline in `.slicewright/research.json`. It is for the person: an agent never runs it, because it switches branches and starts a session.
 
 ## Design rules
 
@@ -26,7 +26,7 @@ The layout is in [doc/overview/structure.md](doc/overview/structure.md).
 
 ## Checking a change
 
-- `sh tests/static.sh` checks the plugin without a model: both `claude plugin validate` runs, every JSON file, the pipeline in `defaults.json`, and each skill's frontmatter.
+- `sh tests/static.sh` checks the plugin and the project's configurations without a model: both `claude plugin validate` runs, every JSON file, the pipeline in `defaults.json`, every `.slicewright/<name>.json` merged onto it, and each skill's frontmatter.
 - `sh tests/selftest.sh` checks those checks, and the smoke checks, on broken copies.
 - `sh tests/smoke.sh` runs the pipeline headless on a copy of the sample project and checks what the run leaves. It is too slow for a task or a quality gate: the test stage runs it, or you do, by hand.
 - [doc/overview/testing.md](doc/overview/testing.md) says what each one checks, how to run it, and how to add a check.

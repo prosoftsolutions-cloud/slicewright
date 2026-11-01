@@ -1,16 +1,18 @@
 ---
 name: configure
 description: Set up Slicewright in this project. Creates the project config from the plugin defaults and allows the pipeline's skills to run without permission prompts.
-argument-hint: "[--permissions]"
+argument-hint: "[--config <name>] [--permissions]"
 disable-model-invocation: true
-allowed-tools: Read(/${CLAUDE_PLUGIN_ROOT}/defaults.json) Read(~/.slicewright/config.json)
+allowed-tools: Read(/${CLAUDE_PLUGIN_ROOT}/defaults.json) Read(~/.slicewright/**)
 ---
 
 # Configure the project
 
 Arguments: $ARGUMENTS
 
-With `--permissions`, skip steps 2 and 3 and only update the permissions. Any other argument is an error: stop and show the usage, `/slice:configure [--permissions]`.
+The arguments may hold `--config <name>` and `--permissions`, in either order. With `--permissions`, skip steps 2 and 3 and only update the permissions. Any other argument is an error: stop and show the usage, `/slice:configure [--config <name>] [--permissions]`.
+
+The configuration's file name is `<name>` from `--config`, with `.json` added when it doesn't end in it. Without `--config`, it is `config.json`. A name must be a plain file name: if it contains `/` or `..`, that is a usage error too. Its local variant replaces the ending `.json` with `.local.json`. Below, `<file name>` and `<local variant>` mean these.
 
 ## 1. Find the project root
 
@@ -18,7 +20,7 @@ The project root is the top folder of the project's version control working copy
 
 ## 2. Create the config
 
-If `.slicewright/config.json` doesn't exist, read `${CLAUDE_PLUGIN_ROOT}/defaults.json` and write its exact content there with the Write tool, not a shell copy. If it exists, leave it unchanged.
+This step applies only when the file name is `config.json`. If `.slicewright/config.json` doesn't exist, read `${CLAUDE_PLUGIN_ROOT}/defaults.json` and write its exact content there with the Write tool, not a shell copy. If it exists, leave it unchanged. With another name, create no file: the configuration must already exist where step 4.1 reads it.
 
 ## 3. Set up the documentation
 
@@ -27,7 +29,7 @@ Load the configuration as in step 4.1, and take `sharedParams.knowledge` and the
 1. **The source slices publish to.**
    - **With a `skill`**, it is outside the project, and that skill manages it: change nothing there. Say which skill it is.
    - **With a `path`, when the folder doesn't exist or has no pages:** show the structure the configuration describes: its folders, and the index pages its conventions call for, with the root index's short "How to read" part. Ask the user whether to create it, and wait for the answer. When they agree, create those folders and index pages, each following the documentation's conventions, and nothing else.
-   - **With a `path`, when the folder already has documentation:** compare its structure with the one the configuration describes. For each place the configuration names, such as a folder for decision records, find the existing folder or page that serves it, or say there is none. Show the user this mapping, ask them to confirm or correct it, and wait for the answer. Then write it into `.slicewright/config.json`: change the paths in the source's `context` and in the knowledge agents' contexts to the existing ones, and keep everything else as it was. Never move or rename the project's existing documentation.
+   - **With a `path`, when the folder already has documentation:** compare its structure with the one the configuration describes. For each place the configuration names, such as a folder for decision records, find the existing folder or page that serves it, or say there is none. Show the user this mapping, ask them to confirm or correct it, and wait for the answer. Then write it into `.slicewright/<file name>` when that file exists, changing the paths in the source's `context` and in the knowledge agents' contexts to the existing ones and keeping everything else as it was; otherwise say that the mapping belongs in the file that holds the configuration, and change nothing. Never move or rename the project's existing documentation.
 2. **The project instructions block.** Every agent and every session reads the root `AGENTS.md`, so it carries a short pointer to the documentation: a block between `<!-- slicewright:knowledge -->` and `<!-- /slicewright:knowledge -->`, written the way the `instructions` knowledge agent's context says, when there is one. Show the block, ask whether to add it, and wait for the answer. When they agree, replace only what is between the markers; when there are none, add the block at the end of `AGENTS.md`, and when there is no `AGENTS.md`, create it with only the block. Never change `CLAUDE.md`.
 3. **What `AGENTS.md` already says.** Read the rest of the root `AGENTS.md`, when it exists, and look for two kinds of overlap with the documentation:
    - a section that repeats what the documentation holds, or should hold, such as a description of the architecture: propose moving its content into the documentation, at the page where it belongs, and leaving a one-line pointer in its place
@@ -39,9 +41,11 @@ Load the configuration as in step 4.1, and take `sharedParams.knowledge` and the
 
 1. Load the configuration: read these JSON files in order, each with the Read tool rather than a shell command, and skip any that don't exist. Objects merge key by key, at any depth, any other value from a later file, such as an array or text, replaces the earlier one, and a `null` value removes the key.
    1. `${CLAUDE_PLUGIN_ROOT}/defaults.json`
-   2. `~/.slicewright/config.json`
-   3. `.slicewright/config.json`
-   4. `.slicewright/config.local.json`
+   2. `~/.slicewright/<file name>`
+   3. `.slicewright/<file name>`
+   4. `.slicewright/<local variant>`
+
+   With a name other than `config.json`, at least one of files 2 to 4 must exist. Otherwise stop, say which three files you looked for, and change nothing.
 2. List the rules the pipeline needs:
    - `Skill(<name>)` for every stage's `skill` except `TBD`, and for every `skill` key at any depth in `sharedParams` or a stage's `params`
    - `Skill(slice:run)`, `Skill(slice:tracking)` and `Bash(date:*)`, which the pipeline runner uses
@@ -69,7 +73,7 @@ Load the configuration as in step 4.1, and take `sharedParams.knowledge` and the
 
 ## 5. Report
 
-- the config file, and whether you created it, changed it or left it as it was
+- the configuration: its file name, and whether you created `.slicewright/config.json`, changed it or left it as it was
 - the documentation: what you created or mapped, whether you added the `AGENTS.md` block, and each `AGENTS.md` proposal with the user's answer
 - the settings file, the rules you added, and the rules that were already there
 - any `Skill(...)` rule in that file that the pipeline no longer uses: list it, and leave it in place

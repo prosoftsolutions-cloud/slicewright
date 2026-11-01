@@ -32,7 +32,11 @@
       "Bash(git push:*)",
       "Bash(gh pr create:*)",
       "Bash(gh pr view:*)",
-      "Bash(gh pr edit:*)"
+      "Bash(gh pr edit:*)",
+      "Skill(slice:research)",
+      "Bash(gh issue create:*)",
+      "Bash(gh issue list:*)",
+      "Bash(gh issue view:*)"
     ]
   }
 }

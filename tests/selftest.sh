@@ -10,8 +10,9 @@
 # Exit status: 0 every case passed, 1 a case was missed, 2 a tool is missing.
 #
 # To add a case, copy a block below and change its break and its expected
-# result. A static case breaks a copy of plugins/slice. A smoke case breaks a
-# run folder prepared from the sample with the finished-run fixture on top.
+# result. A static case breaks a copy of plugins/slice, or of the repo's parts a
+# check needs. A smoke case breaks a run folder prepared from the sample with
+# the finished-run fixture on top.
 
 cannot_run() {
   printf 'selftest: %s\n' "$1" >&2
@@ -271,7 +272,30 @@ if [ -z "$WHY" ]; then
   sh "$COPY/tests/static.sh" </dev/null >"$OUT" 2>&1
   STATUS=$?
 fi
+need_line "PASS configs"
 static_fails '/skills/plan/SKILL.md: '
+report_case
+
+# static/configs: a project configuration whose stage names no skill folder. The
+# configs check reads the configurations from static.sh's own repo, so the case
+# copies the manifests, the plugin, the static checks and .slicewright/research.json
+# into COPY, breaks the copy's research.json, and runs the copy's static.sh.
+begin static/configs
+COPY="$W/$SLUG"
+step "make the repo copy's tests folder" mkdir -p "$COPY/tests"
+step "make the repo copy's .slicewright folder" mkdir -p "$COPY/.slicewright"
+step "copy .claude-plugin" cp -R "$REPO/.claude-plugin" "$COPY/.claude-plugin"
+step "copy plugins" cp -R "$REPO/plugins" "$COPY/plugins"
+step "copy static.sh" cp "$REPO/tests/static.sh" "$COPY/tests/static.sh"
+step "copy tests/static" cp -R "$REPO/tests/static" "$COPY/tests/static"
+step "copy research.json" cp "$REPO/.slicewright/research.json" "$COPY/.slicewright/research.json"
+edit jq '(.pipeline[] | select(.name == "research") | .skill) = "slice:no-such-skill"' "$COPY/.slicewright/research.json" "$REPO/.slicewright/research.json"
+if [ -z "$WHY" ]; then
+  OUT="$W/$SLUG.out"
+  sh "$COPY/tests/static.sh" </dev/null >"$OUT" 2>&1
+  STATUS=$?
+fi
+static_fails 'research.json: stage research: '
 report_case
 
 # --- Smoke level: smoke.sh check on a broken run folder ---

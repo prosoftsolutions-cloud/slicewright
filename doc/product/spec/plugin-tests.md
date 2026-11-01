@@ -4,7 +4,7 @@ type: spec
 
 # Plugin tests
 
-These tests check a new version of the plugin in `plugins/slice` before it is merged to `master` and becomes the stable version. They are for the developers of Slicewright. [Testing](../../overview/testing.md) gives the commands, their output, the run folder and the self-test's cases.
+These tests check a new version of the plugin in `plugins/slice` before it is merged to `master` and becomes the stable version, and the project's own pipeline configurations with it. They are for the developers of Slicewright. [Testing](../../overview/testing.md) gives the commands, their output, the run folder and the self-test's cases.
 
 ## Requirements
 
@@ -13,13 +13,13 @@ These tests check a new version of the plugin in `plugins/slice` before it is me
 - Every test, fixture and sample project lives under `tests/` at the repo root, outside `plugins/slice/`, because an installed plugin is a copy of its folder.
 - The tests need only the `claude` CLI, `jq`, `git` and a POSIX `sh`.
 - Each command runs from the repo root as one command, with no `&&`, `;` or pipes, so a stage's agent can run it in one call.
-- Tests load the plugin only from the working copy, `plugins/slice`, never from `.slicewright/stable/`. They change nothing under either folder. They change only copies of the sample and the fixture, in new folders outside the repo.
+- Tests load the plugin only from the working copy, `plugins/slice`, never from `.slicewright/stable/`. They change nothing under either folder, and nothing under `.slicewright/`. They change only copies, of the sample, of the fixture, and of the parts of the repo a self-test case needs, in new folders outside the repo.
 
 ### Static level
 
-`sh tests/static.sh [<plugin folder>]` checks a plugin folder. With no folder given, it checks `plugins/slice`. It starts no Claude session, makes no model call, and finishes within 60 seconds. It prints each problem with the file, stage or skill folder it concerns. It exits 1 when any check fails, 0 when all pass, and 2 when it can't run.
+`sh tests/static.sh [<plugin folder>]` checks a plugin folder, and the pipeline configurations of the repo the script belongs to. With no folder given, it checks `plugins/slice`. It starts no Claude session, makes no model call, and finishes within 60 seconds. It prints each problem with the file, stage or skill folder it concerns. It exits 1 when any check fails, 0 when all pass, and 2 when it can't run.
 
-Its checks:
+Its checks, in order:
 
 1. `validate`: `claude plugin validate .` and `claude plugin validate <plugin folder>` both pass. Warnings don't fail it.
 2. `json`: every `.json` file under the plugin folder and under `.claude-plugin/` holds exactly one JSON value.
@@ -29,7 +29,8 @@ Its checks:
    - Every `next` and `onError` that isn't `null` names a stage. Every value in a stage's `params.choices` names a stage or is `null`.
    - Every stage's `skill`, and every `skill` key at any depth in `sharedParams` and in the stages' `params`, is `TBD` or `slice:<name>`, where `<plugin folder>/skills/<name>/SKILL.md` exists.
    - No stage's `params` sets `activeSlicePath`.
-4. `skills`: every folder under `<plugin folder>/skills/` has a `SKILL.md`. Its frontmatter has a `name` equal to the folder's name and a non-empty `description`. Every skill except `new`, `resume` and `configure` has `user-invocable: false`.
+4. `configs`: every `.slicewright/<name>.json` of the repo that `tests/static.sh` belongs to, except `*.local.json`, merged onto `<plugin folder>/defaults.json` the way the runner merges configurations: objects merge key by key at any depth, any other value from the configuration replaces the default, and `null` removes the key. The result must pass the rules of `defaults`, with skills checked against `<plugin folder>/skills/`. Each problem is one `FAIL configs: <file>: stage <name>: <problem>` line, naming the configuration file and the stage. A file that doesn't parse fails as `FAIL configs: <file>: does not parse`. With no such file, the check passes. The check covers `config.json`, `research.json` and any configuration added later alike, and the rules live in one place, `tests/static/defaults.jq`, so a rule added for the defaults applies to every configuration.
+5. `skills`: every folder under `<plugin folder>/skills/` has a `SKILL.md`. Its frontmatter has a `name` equal to the folder's name and a non-empty `description`. Every skill except `new`, `resume` and `configure` has `user-invocable: false`.
 
 ### The sample
 
@@ -93,7 +94,7 @@ Checks 5 and 6 run in scratch copies. So the kept copy doesn't change, and the o
 
 `sh tests/selftest.sh` checks the tests' own checks. It starts no Claude session and finishes within 60 seconds.
 
-- Each static case breaks one thing in a copy of `plugins/slice` and runs the static command on it. The command must fail and name the broken stage, skill or file.
+- Each static case breaks one thing and runs the static command on the result. The command must fail and name the broken stage, skill or file. Most cases break a copy of `plugins/slice`. A check that reads from the repo the script belongs to, a checker in `tests/static/` or a project configuration in `.slicewright/`, is broken in a copy of the parts of the repo the check needs, the manifests, the plugin, the static checks and the configuration, and the copy's own `static.sh` runs on it.
 - Each smoke case breaks one thing in a copy of the finished-run fixture, `tests/fixtures/finished-run/`, and evaluates the smoke checks on it. The copy is built with the same `prepare` step a real run uses. The broken case must fail its own check and pass every other check from 3 to 8.
 - The unbroken plugin must pass. The unbroken fixture must pass every check except 1 and 2, which need a real session.
 - A break that changes nothing counts as missed.
@@ -109,19 +110,21 @@ Checks 5 and 6 run in scratch copies. So the kept copy doesn't change, and the o
 
 - `overview/testing.md` covers these points:
   - what each level checks and why, its command, and which stages run it
+  - the static level's five checks, in order, the `configs` check among them
   - what a run costs and how long it takes, as measured on the first passing smoke run
   - the static command and the self-test command, named as the project's tests that need no headless Claude run, and the smoke command, named as a test that needs one
   - where the sample and its acceptance check are, and how a run copies the sample
   - the test configuration's overrides, with their reasons
+  - the self-test's cases in a table, with their count, and how the case that breaks a project configuration builds its copy
   - how to add a static check with its self-test case
   - that tests load the plugin only from `plugins/slice` and change only copies
 - `overview/structure.md` lists the `tests/` folder.
-- The "Checking a change" section of `AGENTS.md` names the static, self-test and smoke commands, and points to the testing page.
+- The "Checking a change" section of `AGENTS.md` names the static, self-test and smoke commands, says that the static command checks the plugin and the project's configurations, and points to the testing page.
 
 ## Acceptance criteria
 
 - Given the repo, when the files of the tests, fixtures and sample are listed, then each one is under `tests/`, and none is under `plugins/slice/` or `.slicewright/stable/`.
-- Given the working copy, when the static command runs from the repo root, then it exits 0 within 60 seconds, and its code starts no Claude session.
+- Given the working copy, when the static command runs from the repo root, then it exits 0 within 60 seconds, prints `PASS` for its five checks, `PASS configs` among them, and its code starts no Claude session.
 - Given a copy of `plugins/slice` with exactly one of these broken:
   - a stage's `next` that names no stage
   - a `choices` value that names no stage
@@ -132,6 +135,9 @@ Checks 5 and 6 run in scratch copies. So the kept copy doesn't change, and the o
   - a JSON file that doesn't parse
 
   When the static command runs on that copy, then it exits non-zero, and its output names the broken stage, skill or file. This holds for each case on its own.
+- Given a copy of the parts of the repo the static command needs, the manifests, `plugins/slice`, `tests/static.sh`, `tests/static/` and `.slicewright/research.json`, in which `research.json`'s `research` stage has `skill: "slice:no-such-skill"`, when the copy's static command runs, then it exits 1 with a `FAIL configs:` line that names `research.json` and `stage research`.
+- Given such a copy with no `.slicewright/` folder, when its static command runs, then it prints `PASS configs`.
+- Given a `.slicewright/<name>.local.json` that breaks a rule, when the static command runs, then no `FAIL configs:` line names it.
 - Given a fresh copy of the sample, when its own test command runs, then its tests pass without installing anything. When the acceptance check runs against that unchanged copy, then it fails, because the requested feature doesn't exist yet.
 - Given a copy of the project that breaks any one outcome the request states, such as what stays the same without the option, or which letters become upper case under a UTF-8 locale, when the acceptance check runs against it, then it fails and names that case.
 - Given the working copy, when the smoke command runs, then the headless run goes through the seven stages, and every check passes within 90 minutes.
@@ -150,19 +156,14 @@ Checks 5 and 6 run in scratch copies. So the kept copy doesn't change, and the o
 - Given the repo's `.slicewright/config.json`, when its `test` stage is read, then its `testAgents` has a `smoke` entry whose context does four things: it runs the smoke command, reports each check as one test by its name, reports the folder from the last line as the artifacts, and waits for a run longer than one shell command may last.
 - Given a slice whose test stage runs with that entry, when the smoke run takes longer than 10 minutes, then the suite still reports `RAN`, with one test per check and the folder as its artifacts.
 - Given the documentation and `AGENTS.md`, when a reviewer reads them, then:
-  - `overview/testing.md` covers every point under Documentation above
+  - `overview/testing.md` covers every point under Documentation above, and its self-test count equals the number of cases the self-test runs
   - `overview/structure.md` lists `tests/`
-  - the "Checking a change" section names the three commands and points to the testing page
+  - the "Checking a change" section names the three commands, says that the static command checks the project's configurations, and points to the testing page
 - Given the testing page, when an implement quality gate follows its context, "Run the project's tests that need no headless Claude run, when the documentation describes any", then the page names exactly the static command and the self-test command as those tests.
-- Given the working copy, when the self-test command runs from the repo root, then it exits 0 within 60 seconds and starts no Claude session. It lists each broken static case and each broken smoke case as caught.
+- Given the working copy, when the self-test command runs from the repo root, then it exits 0 within 60 seconds and starts no Claude session. It lists each broken static case and each broken smoke case as caught, the case that breaks a project configuration among them.
 - Given the developer's user-level settings enable other plugins, hooks or MCP servers, when the smoke command runs, then the kept session output shows only the `slice` plugin, loaded from `plugins/slice`, and no MCP server. Claude Code's built-in plugins aren't counted. The `isolation` check passes.
 
 ## Limitations
 
-- No smoke run has been made yet. So the testing page gives no measured cost or duration of a run. A real run also hasn't yet shown four things:
-  - the seven-stage run passing every check
-  - a one-minute time limit stopping a run
-  - the `test` stage's suite waiting for, and reporting, a run longer than 10 minutes
-  - the `isolation` check passing when the developer's own plugins, hooks and MCP servers are enabled
-
-  Reason: a person accepted building the tests without a smoke run. A smoke run can't start before the tests are committed. A task's Verify and a quality gate may not run one. The test stage of the slice that built the tests loaded its configuration before the `smoke` suite existed. A follow-up slice runs the smoke test, proves these, and adds the measured numbers to the testing page.
+- The testing page gives no measured cost of a smoke run, and no real run has yet shown a one-minute time limit stopping a run. The first passing smoke run, on 2026-10-28, passed every check and took about 53 minutes, with the `test` stage's suite waiting for it in steps and reporting one test per check; its cost stayed in the run folder's `run.txt`. The run also passed the `isolation` check, but its report doesn't say what the developer's own setup had enabled, so that criterion is shown only as far as the report goes. Reason: the test report records the suite's results and the run folder, not the cost, and the testing page's numbers weren't among what the slice that made the run set out to change; no run has been made with the time limit overridden.
+- The `configs` check's rule that leaves `*.local.json` alone has no self-test case. Deleting that line in `tests/static.sh` leaves both the static command and the self-test passing. Reason: the slice that added the check asked for one self-test case, the one that breaks `research.json`, and the code review rated the missing case a suggestion, with no blocking finding, so the slice shipped the check unchanged and no review decision was taken. The fix it proposed: in the same case, also copy the broken `research.json` to `research.local.json` and require that no `FAIL` line names it.

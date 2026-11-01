@@ -73,13 +73,98 @@ A later `wait` finds `ended`, prints the saved report, and exits the same way. A
 
 The "build and tests" quality gates of `implement`, `review-fix` and `bug-fix` read the testing page, and run the two tests it names as needing no headless Claude run.
 
-1. `sh tests/static.sh` runs its four checks on `plugins/slice`. Its only `claude` calls are the two local validations.
+1. `sh tests/static.sh` runs its five checks: `validate`, `json`, `defaults` and `skills` on `plugins/slice`, and `configs` on every `.slicewright/<name>.json` of the repo except `*.local.json`, each merged onto `plugins/slice/defaults.json` and checked with the rules of `defaults`. Its only `claude` calls are the two local validations.
 2. `sh tests/selftest.sh` makes one work folder with `mktemp -d`. For each case, it:
-   1. makes a copy: of `plugins/slice` for a `static/…` case, or, for a `smoke/…` case, of the sample with the fixture laid on top, through `smoke.sh prepare`;
+   1. makes a copy: of `plugins/slice` for most `static/…` cases; for `static/checker` and `static/configs`, of the parts of the repo the check reads, the manifests, the plugin, `static.sh` and `tests/static/`, and for `static/configs` also `.slicewright/research.json`; or, for a `smoke/…` case, of the sample with the fixture laid on top, through `smoke.sh prepare`;
    2. breaks one thing in the copy, and checks that the break changed something, or reports the case as `MISSED`;
-   3. runs `static.sh`, or `smoke.sh check`, on the copy;
+   3. runs `static.sh`, the copy's own for the two cases that copy the repo's parts, or `smoke.sh check`, on the copy;
    4. looks for the line that names what broke.
 
    It removes its work folder only when every case passes. Otherwise it keeps the folder and prints `kept: <folder>`.
 
 Neither starts a Claude session, and each finishes within 60 seconds. The smoke test never runs in a quality gate or a task's Verify.
+
+## A slice with a named configuration
+
+A project can keep more than one pipeline, one per `.slicewright/<name>.json`, and a slice remembers the one it runs with: `--config <name>` picks it, and `status.md` carries it to the next session. [Named configurations](../product/spec/named-configurations.md) gives the rules. The smoke run loads its test configuration this way, as `/slice:new --config smoke.json`, and this repo's research pipeline is started this way, as below.
+
+```mermaid
+sequenceDiagram
+  participant Dev as the person
+  participant Start as start-slice.sh
+  participant Runner as runner, slice:run
+  participant Tracking as slice:tracking
+  participant Status as slice/status.md
+
+  Dev->>Start: sh start-slice.sh --config research 17
+  Start->>Start: master at origin/master, .slicewright/stable/ there, the stable plugin validates
+  Start->>Start: .slicewright/research.json exists, or exit 1
+  Start->>Runner: claude --plugin-dir .slicewright/stable/plugins/slice "/slice:new --config research 17"
+  Runner->>Runner: load defaults.json, ~/.slicewright/research.json, .slicewright/research.json, .slicewright/research.local.json, and check the pipeline
+  Runner->>Runner: intake, ok
+  Runner->>Tracking: create ./slice intake config=research.json
+  Tracking->>Status: config: research.json
+  Note over Dev,Status: a later session
+  alt /slice:resume, without --config
+    Runner->>Runner: load config.json
+    Runner->>Status: read config
+    Runner->>Runner: load research.json instead, and say so
+  else /slice:new <request>, without --config, and the person chooses Continue
+    Runner->>Status: read config
+    Runner->>Runner: load research.json, check it, say so, and say that the request is not used
+  end
+  Runner->>Runner: go on with the stage status.md names
+```
+
+- Without `--config`, the name is `config.json`, and nothing is recorded: `status.md` has a `config:` line only for another configuration.
+- With `--config` given, on `/slice:resume` or on `/slice:new`, the given configuration is kept, whatever `status.md` records.
+- With a name other than `config.json`, at least one of `~/.slicewright/<file name>`, `.slicewright/<file name>` and `.slicewright/<local variant>` must exist, or the runner stops and names the three. `start-slice.sh` checks only the project's file, `.slicewright/<name>.json`, before Claude starts.
+- **Start new** deletes the slice folder and starts the typed request with the configuration loaded, so `/slice:new` without `--config` then runs `config.json`.
+- When the stage to go on with isn't in the loaded pipeline, because the configuration changed, the runner says so and stops.
+
+## A research topic through the research pipeline
+
+The research pipeline, `.slicewright/research.json`, has eight stages and two gates where a person decides. [Research pipeline](../product/spec/research-pipeline.md) gives each stage's context in full; this is the flow.
+
+```mermaid
+sequenceDiagram
+  participant Dev as the person
+  participant Runner as runner, with research.json
+  participant Clarify as clarify
+  participant Research as research
+  participant Deploy as file-issues and release, slice:deploy
+  participant Consolidate as consolidate
+  participant GitHub
+
+  Runner->>GitHub: intake: gh issue view, then the slice's branch
+  Runner->>Clarify: the topic
+  Clarify-->>Runner: spec.md: one question per requirement, what a good answer contains, the sources in and out
+  Runner->>Dev: questions-review: approve the questions
+  loop until accept or drop
+    Runner->>Research: the questions, or the ones the review notes name
+    Research-->>Runner: research.md: answers with evidence and confidence, conclusions, options, recommendation, follow-ups
+    Runner->>Dev: results-review: the open questions, the recommendation's Decision, each follow-up's Decision
+    alt more-research
+      Dev-->>Runner: requests under Review notes, then research runs again
+    else re-scope
+      Dev-->>Runner: a Re-scope section in input.md, then clarify and questions-review run again
+    else drop
+      Dev-->>Runner: the run ends
+    else accept
+      Dev-->>Runner: every Decision line filled
+    end
+  end
+  Runner->>Deploy: file-issues
+  Deploy->>GitHub: gh issue list, gh issue create, gh issue view, for each follow-up marked file
+  Deploy-->>Runner: deployments.md: the issue URLs, each with its follow-up's id
+  Runner->>Consolidate: the research page, a decision record when one was taken, the indexes, the log, the records archive
+  Runner->>Deploy: release
+  Deploy->>GitHub: push the branch, gh pr create
+```
+
+- `research` has `onError: results-review`, so a failure, `NO_SPEC`, `SPEC_NOT_READY` or `WRITE_FAILED`, is put to the person. `accept` isn't open then, and a failure in the spec itself is fixed through `re-scope`, not `more-research`.
+- `more-research` runs `research` again. The person's requests are lines under `## Review notes`; the stage reworks what they name, keeps the rest of the document, and removes the notes.
+- `re-scope` runs `clarify` again, with a `## Re-scope` section appended to `input.md`, then `questions-review`. The next research run matches questions by their text, so renumbering loses nothing.
+- `drop` ends the run: its choice maps to no stage.
+- `file-issues` runs before `consolidate`, so that the research page carries the issue links from `deployments.md`.
+- `consolidate`'s three knowledge agents run in order: `research` stages `architecture/research/<name>.md`, and updates it under the same name on a later consolidation; `adr` stages a decision record when the recommendation's `Decision:` is filled and doesn't start with `none`, and links the staged page; `index` updates the indexes, lists a new folder under Contents in its parent's `index.md`, and adds the entry to `log.md`.

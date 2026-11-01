@@ -1,0 +1,131 @@
+{
+  "pipeline": [
+    {
+      "name": "intake",
+      "skill": "slice:intake",
+      "executionMode": "fork",
+      "params": {
+        "context": "Checks, in order: 1. Fetch origin. `.slicewright/stable/` must be a git working copy of this repository at the latest commit of `origin/master`. When it is missing or behind, stop with CHECK_FAILED and say how to fix it: quit, and run `sh start-slice.sh` in the project folder, which installs or updates it and starts a new session with it. Never install or update it yourself. 2. The working copy is on `master`, with no uncommitted changes, at `origin/master`. 3. `gh` is installed and signed in. Input: a number such as `2` or `#2`, or the URL of an issue in prosoftsolutions-cloud/slicewright: read it with `gh issue view <number> --repo prosoftsolutions-cloud/slicewright --comments`. The title is the issue's title, the id is `issue-<number>`, the source is its URL, and the input is its body and comments. Any other input is used as given, without an id. Then create the branch `slice/<number>-<title in lowercase words joined with ->` from `master`, or `slice/<title in lowercase words joined with ->` without an issue, and switch to it."
+      }
+    },
+    {
+      "name": "clarify",
+      "skill": "slice:clarify",
+      "executionMode": "fork",
+      "params": {
+        "context": "This slice is a research topic, not a feature, so fill the spec template this way. The requirements are the research questions, one question per requirement, each concrete enough that an answer can be judged right or wrong. Each acceptance criterion says what a good answer to its question contains, the evidence it needs, and when it is good enough. Under Scope, Changes lists the areas the topic covers, and Out of scope what it leaves alone; both say which kinds of sources are in and which are out. The constraints hold the rules of evidence for this topic, such as the versions or dates that matter and the sources that don't count. Follow-up slices are later research. Leave out what a feature spec has and a research topic doesn't, such as the paths that will change.",
+        "reviewAgents": [
+          {
+            "agent": "general-purpose",
+            "executionMode": "fork",
+            "context": "Check the research questions for: a question without what a good answer contains; a scope that doesn't cover every question, or doesn't say which sources are in and out; a question the project's documentation or code already answers; a requirement that holds two questions; an open question without a recommended answer."
+          }
+        ]
+      }
+    },
+    {
+      "name": "questions-review",
+      "skill": "slice:human",
+      "executionMode": "inline",
+      "params": {
+        "files": [
+          "spec.md",
+          "input.md"
+        ],
+        "context": "Present spec.md for approval as the research brief: the questions, the scope with the areas and the sources in and out, and what a good answer to each question contains, with a short summary of clarify's latest entry in design-reviews.md: issues fixed, issues rejected and why, and reviews that didn't run. Walk the user through its open questions, then ask them to confirm the assumptions. Apply each answer to the questions and acceptance criteria it affects, keep the spec's format, remove a question from Open questions once it is answered, and remove that section when it is empty. The user decides whether to approve the questions. When approved, append a '## Session summary' section to input.md, replacing an earlier one and never changing the text above it: the decisions, each question with its answer, the assumptions the user confirmed, anything still open, and a last line 'See spec: spec.md'."
+      }
+    },
+    {
+      "name": "research",
+      "skill": "slice:research",
+      "executionMode": "fork",
+      "onError": "results-review",
+      "params": {
+        "context": "The project's own knowledge beyond the documentation: the plugin's code under plugins/slice, this repo's configurations in .slicewright/config.json and .slicewright/research.json, and the records of earlier slices in .slicewright/slices/, found through .slicewright/slices/index.md. Trust, from most to least: the project's own code and documentation; the primary source for a matter, such as a tool's official documentation, its source code, a standard, or the author's own text; a secondary source that reports it, such as an article or a discussion; a vendor's marketing. A source the spec rules out is not read. Cite a page as its link with the date it was read, `<link> (read <YYYY-MM-DD>)`, and a file in the project as its path, with the line or the section when it helps. Evidence is what the cited source says, as a short quote or a fact taken from it, or what the agent checked itself, with the command or the step and what it showed. A summary from memory, and a claim without a source, are not evidence.",
+        "researchAgents": [
+          {
+            "name": "web",
+            "agent": "general-purpose",
+            "executionMode": "fork",
+            "context": "Search the web for each question and read the primary sources you find: official documentation, source code, standards and the authors' own texts. Prefer a primary source over a page that reports it, and read the page itself, never only a search result's summary."
+          },
+          {
+            "name": "claude-code",
+            "agent": "claude-code-guide",
+            "executionMode": "fork",
+            "context": "Answer what concerns Claude Code, its plugins, skills, hooks, subagents and settings, the Claude Agent SDK and the Claude API, from their documentation. For a question outside these, answer nothing found."
+          }
+        ],
+        "reviewAgents": [
+          {
+            "agent": "general-purpose",
+            "executionMode": "fork",
+            "context": "Check research.md for: an answer without evidence, or a claim whose cited source doesn't say it, opening the source to check; a source the spec rules out, or a question of the spec with no answer; evidence that disagrees without the disagreement noted; a confidence the evidence doesn't justify; an option without trade-offs; a recommendation that doesn't follow from the conclusions; an open question without a recommended answer."
+          }
+        ]
+      }
+    },
+    {
+      "name": "results-review",
+      "skill": "slice:human",
+      "executionMode": "inline",
+      "params": {
+        "files": [
+          "research.md",
+          "input.md"
+        ],
+        "choices": {
+          "accept": "file-issues",
+          "more-research": "research",
+          "re-scope": "clarify",
+          "drop": null
+        },
+        "context": "Read status.md first. When its latest research row is failed, say so first, with the reason from its Log, say that accept needs a finished research so only more-research, re-scope and drop apply now, and say that a failure in the spec itself, NO_SPEC or SPEC_NOT_READY, is fixed through re-scope, not more-research. When research.md is missing, present only that failure. Otherwise present research.md in your own words: each answer with its confidence, the conclusions, the options, the recommendation and the follow-ups, with a short summary of research's latest entry in design-reviews.md: issues fixed, issues rejected and why, and reviews that didn't run. Walk the user through the open questions. For each one answered, apply the answer where the question says it affects, keep the format, remove the question from Open questions, remove that section when it is empty, and add one line under '## Decisions', creating that section after Recommendation when it is missing: '- <the question>: <the answer>'. Ask for the decision on the recommendation and write it on its 'Decision:' line, as the decision in the user's words, or 'none: <why>'. For each follow-up, ask on its own whether to file it as an issue, and write 'Decision: file' or 'Decision: no issue' on its Decision line. Then the user chooses: accept, only when the recommendation and every follow-up have a decision; more-research, after writing each of the user's requests as one line under '## Review notes' in research.md, naming the question or the section it concerns, and creating that section at the end when it is missing; re-scope, after appending a '## Re-scope' section to input.md with the user's reasons and the new direction, never changing the text above it; drop to end the run."
+      }
+    },
+    {
+      "name": "file-issues",
+      "skill": "slice:deploy",
+      "executionMode": "fork",
+      "params": {
+        "context": "File the follow-ups of research.md whose Decision line is 'file' as issues of prosoftsolutions-cloud/slicewright on GitHub. A follow-up is one entry under '## Follow-ups', `- **F<n>** <title>: <what, and why it matters>`, followed by its Decision line; its title is the text between the id and the first colon. For each: look for an issue with the same title, open or closed, with `gh issue list --repo prosoftsolutions-cloud/slicewright --state all --search \"<title> in:title\" --json number,title,url`, and keep only an issue whose title equals the follow-up's title. When there is none, create one with `gh issue create --repo prosoftsolutions-cloud/slicewright --title \"<the follow-up's title>\" --body \"<its text, why it matters, and where it comes from: the slice's title from status.md and, when input.md has one, its source issue>\"`. The target is the repository prosoftsolutions-cloud/slicewright on GitHub. The endpoint is the list of issue URLs, created or found, each with its follow-up's id. The check is `gh issue view <number> --repo prosoftsolutions-cloud/slicewright` on each. With no follow-up marked file, record that there was nothing to file, with no endpoint, and return ok."
+      }
+    },
+    {
+      "name": "consolidate",
+      "skill": "slice:consolidate",
+      "executionMode": "fork",
+      "params": {
+        "archivePath": "./.slicewright/slices",
+        "knowledgeAgents": [
+          {
+            "name": "research",
+            "agent": "general-purpose",
+            "executionMode": "fork",
+            "context": "The research page `architecture/research/<name>.md`, where <name> is the slice's title from status.md in lowercase: words are runs of letters and digits, everything else separates them, and they are joined with `-`, the way a records folder is named for a slice without an id, so that a later consolidation finds the same page. Its frontmatter: `type: research`, `date: <the date part of created in status.md>`, and `source: <the source in input.md>` when there is one. Its content, from research.md: the questions, each with its answer, its evidence with sources and confidence, and its disagreements; the conclusions; the options; the recommendation with the decision taken, where a Decision line that starts with 'none' means no decision was taken, shown with its reason; the decisions from the reviews; the open questions; and the follow-ups, each with the link of its issue from the entry in deployments.md whose endpoint lists issue URLs, the latest such entry when there are several, or 'not filed'. When the page exists from an earlier consolidation, update it under the same name instead of adding another."
+          },
+          {
+            "name": "adr",
+            "agent": "general-purpose",
+            "executionMode": "fork",
+            "context": "Decision records in `architecture/decisions/`: when the Decision line under Recommendation in research.md is filled and doesn't start with 'none', one new record, `NNNN-<title>.md`, numbered after the last one, in the form of the records there: its context from the conclusions, the decision as the person wrote it, the other options as the alternatives with why each lost, its consequences, and a link to the research page this slice staged under `architecture/research/`. When the decision replaces an earlier record, mark that record as superseded and link the two. Write nothing otherwise: an empty Decision line, or one that starts with 'none', is no decision."
+          },
+          {
+            "name": "index",
+            "agent": "general-purpose",
+            "executionMode": "fork",
+            "context": "Update the `index.md` of every folder in which the staged pages add or remove a page, listing each page with a one-line description, and add an entry at the top of `log.md`: `## <date>: <the slice's title>`, then one line per page the slice changed, and where its records are kept. Keep a short 'How to read' part at the top of the root `index.md`: where to start, the structure and what each part is for, and the conventions a reader relies on, as the documentation source's context describes them. Change it only when they changed. A folder whose `index.md` is new is listed under Contents in its parent folder's `index.md`, with a one-line description."
+          }
+        ]
+      }
+    },
+    {
+      "name": "release",
+      "skill": "slice:deploy",
+      "executionMode": "fork",
+      "params": {
+        "context": "Push the slice's branch to origin. Then open a pull request against `master` with `gh pr create`: the slice's title as its title, and a body with a short summary from spec.md and the slice's entry in `.slicewright/slices/index.md`, ending with `Closes #<number>` when input.md names an issue. When the branch already has a pull request, update it instead. Report its URL as the endpoint."
+      }
+    }
+  ]
+}

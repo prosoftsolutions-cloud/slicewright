@@ -11,9 +11,10 @@ The rules that apply across the code, each with its reason. The rules for writin
 - Every script runs as `sh <path>`, and needs no executable bit.
 - It uses POSIX sh only: no `local`, no arrays, no `[[ ]]`, no `sed -i` and no `grep -r`.
 - It needs only the `claude` CLI, `jq`, `git` and the standard utilities of a POSIX system, plus `mktemp`, which macOS and every common Linux have.
+- It parses its options by hand, with `case`, and a usage error exits 2 before the script's first step.
 - It passes `dash -n`.
 
-Why: the repo has no runtime and no package manager, so nothing has to be installed. `sh <path>` needs no executable bit in version control, and gives each command one permission prefix, such as `Bash(sh tests/smoke.sh:*)`. On macOS, `/bin/sh` is bash in POSIX mode, which accepts bash-only syntax, so only `dash` shows it.
+Why: the repo has no runtime and no package manager, so nothing has to be installed. `sh <path>` needs no executable bit in version control, and gives each command one permission prefix, such as `Bash(sh tests/smoke.sh:*)`. POSIX `getopts` knows only short options, and the scripts take long ones, such as `--config <name>` and `--minutes <n>`; a usage error that comes first leaves nothing half done. On macOS, `/bin/sh` is bash in POSIX mode, which accepts bash-only syntax, so only `dash` shows it.
 
 ## Every value has one source
 
@@ -22,8 +23,13 @@ A value is kept in one place. Code that needs it elsewhere reads it from there, 
 - The smoke test's configuration is generated from `plugins/slice/defaults.json` when a run starts, and check 3 takes its stage names from that generated file.
 - The finished-run fixture holds only what a run adds to the sample, and is laid on a copy of the sample.
 - The smoke test's time limit is set once, as `LIMIT_MINUTES` in `tests/smoke.sh`.
+- `.slicewright/research.json` and the generated smoke configuration hold only `pipeline`, so their `sharedParams` are the defaults'.
 
-Why: a copy drifts. A test that compares with its own copy keeps passing after the source has changed. With one source, a change to the defaults or the sample reaches the tests with no change under `tests/`.
+A rule has one source too. When code can't read it there, because the source is a skill's text, the code restates the whole rule, says where it comes from, and never uses a built-in that is nearly the same. The `merge` in `tests/static/defaults.jq` is the runner's merge from `plugins/slice/skills/run/SKILL.md`, with `null` removing a key, and its comment says so. jq's `*` keeps the `null`, so it would fail a configuration that drops a key with `null`, which the runner accepts.
+
+When a copy can't be avoided, the page that describes the file says what it copies, from where, and why. `.slicewright/research.json` repeats intake's and release's contexts from `.slicewright/config.json`, because a named configuration is loaded instead of `config.json`, not on top of it, and [Structure](../overview/structure.md) says so.
+
+Why: a copy drifts. A test that compares with its own copy keeps passing after the source has changed. With one source, a change to the defaults or the sample reaches the tests with no change under `tests/`. A near copy of a rule differs from it on some inputs, and a check then rejects what the plugin accepts. A copy nobody knows of is changed in one place only; a documented one is changed with its source.
 
 ## Check commands
 

@@ -1,7 +1,9 @@
 #!/bin/sh
 # Static level: checks a plugin folder without a model.
 # It runs claude plugin validate on the repo and on the plugin folder, checks that every JSON file
-# parses, checks the pipeline in defaults.json, and checks each skill's frontmatter.
+# parses, checks the pipeline in defaults.json, checks every project configuration of the repo
+# (.slicewright/<name>.json, except *.local.json) merged onto defaults.json, and checks each
+# skill's frontmatter.
 # Usage: sh tests/static.sh [<plugin folder>]   (default: plugins/slice)
 # Exit status: 0 every check passed, 1 a check failed, 2 couldn't run.
 
@@ -106,6 +108,25 @@ else
     fail "defaults: $plugin/defaults.json: does not parse"
 fi
 pass_unless_failed defaults "$start"
+
+# configs: every project configuration of this repo, .slicewright/<name>.json except *.local.json,
+# merged onto the plugin folder's defaults.json the way the runner merges them, checked with the same
+# rules as defaults. With no such file, the check passes.
+start=$problems
+for file in "$repo"/.slicewright/*.json; do
+    case $file in
+        *.local.json) continue ;;
+    esac
+    if [ -f "$file" ]; then
+        output=$(jq -r --argjson skills "$skills" --slurpfile base "$plugin/defaults.json" -f "$repo/tests/static/defaults.jq" "$file" 2>/dev/null)
+        if [ "$?" -eq 0 ]; then
+            fail_lines "configs: $file: " "$output"
+        else
+            fail "configs: $file: does not parse"
+        fi
+    fi
+done
+pass_unless_failed configs "$start"
 
 # skills: each skill folder has a SKILL.md with a valid frontmatter.
 start=$problems
