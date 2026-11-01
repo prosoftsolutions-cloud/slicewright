@@ -14,11 +14,12 @@ There are three: the static level, the self-test and the smoke level. They need 
 
 `sh tests/static.sh [<plugin folder>]` checks a plugin folder without a model. The folder defaults to `plugins/slice`, and a relative path resolves against the current folder.
 
-Its four checks, in order:
+Its five checks, in order:
 
 - `validate`: `claude plugin validate` on the repo and on the plugin folder. Only the exit status counts, so warnings pass.
 - `json`: every `*.json` file under the plugin folder and under `.claude-plugin/` holds exactly one JSON value. An empty file fails, and so does a file with several values.
 - `defaults`: the pipeline in the folder's `defaults.json`, checked by `tests/static/defaults.jq`, which holds every rule. Among them: each stage has a name of its own and an `executionMode` of `inline` or `fork`, every `skill` value is `TBD` or names a skill folder, and every `next`, `onError` and choice names a stage.
+- `configs`: every `.slicewright/<name>.json` of the repo, except `*.local.json`, merged onto the folder's `defaults.json` the way the runner merges configurations: objects key by key, any other value replaced, and `null` removes a key. The result is checked with the same rules as `defaults`, by `tests/static/defaults.jq` with the defaults as its base. Each problem names the file and the stage, `FAIL configs: <file>: stage <name>: <problem>`. With no such file, the check passes.
 - `skills`: each `SKILL.md`'s frontmatter, checked by `tests/static/skill.awk`. The `name` equals the folder, the `description` isn't empty, and every skill except `new`, `resume` and `configure` has `user-invocable: false`. When `skill.awk` itself fails on a file, the check fails for that file.
 
 Why: it catches a broken stage, a dangling `next`, `onError` or choice, and frontmatter that `claude plugin validate` misses. It needs no model, so it is cheap enough for every quality gate.
@@ -37,13 +38,13 @@ Exit status: 0 when every check passes, and 1 when any fails. It is 2 when the c
 
 Its work folder is `mktemp -d "${TMPDIR:-/tmp}/slicewright-selftest.XXXXXX"`, and every copy goes in it. The folder is removed only when every case passes. Otherwise the self-test keeps it and prints `kept: <folder>`.
 
-- The `static/…` cases break a copy of `plugins/slice` and run `sh tests/static.sh` on it. `static/checker` breaks a checker instead: `static.sh` reads its checkers from its own repo, so the case copies the parts `static.sh` needs and runs the copy's `static.sh`. A broken case must exit 1 with a `FAIL` line that names its subject.
+- The `static/…` cases break a copy of `plugins/slice` and run `sh tests/static.sh` on it. `static/checker` breaks a checker instead: `static.sh` reads its checkers from its own repo, so the case copies the parts `static.sh` needs and runs the copy's `static.sh`. `static/configs` breaks a copy of `.slicewright/research.json`: the `configs` check reads the configurations from `static.sh`'s own repo, so the case copies the manifests, the plugin, the static checks and `research.json`, and runs the copy's `static.sh`. A broken case must exit 1 with a `FAIL` line that names its subject.
 - The `smoke/…` cases break a run folder that `prepare` made from the sample with the fixture on top, and run `sh tests/smoke.sh check` on it. A broken case must fail its own check and pass every other check from 3 to 8.
 - `static/unbroken` must exit 0.
 - `smoke/unbroken` must fail checks 1 and 2, which need a real session, and pass checks 3 to 8. Checks 1 and 2 fail in every smoke case.
 - Each break must change something. A break that changed nothing is `MISSED`.
 
-The 15 cases:
+The 16 cases:
 
 | Case | Break | Must show |
 |---|---|---|
@@ -55,7 +56,8 @@ The 15 cases:
 | `static/name` | `name: planner` in `skills/plan/SKILL.md` | `/skills/plan/SKILL.md` |
 | `static/user-invocable` | the `user-invocable: false` line removed from `skills/review/SKILL.md` | `/skills/review/SKILL.md` |
 | `static/json` | the last line of the plugin's `.claude-plugin/plugin.json` removed, so it doesn't parse | `/.claude-plugin/plugin.json` |
-| `static/checker` | `tests/static/skill.awk` made unparsable, in a copy of the repo's manifests, plugin and static checks, whose own `static.sh` runs | `/skills/plan/SKILL.md` |
+| `static/checker` | `tests/static/skill.awk` made unparsable, in a copy of the repo's manifests, plugin and static checks, whose own `static.sh` runs | `/skills/plan/SKILL.md`, and `PASS configs`, because its copy has no `.slicewright/` |
+| `static/configs` | stage `research`'s `skill` set to `slice:no-such-skill` in `.slicewright/research.json`, in a copy of the repo's manifests, plugin, static checks and `research.json`, whose own `static.sh` runs | `research.json: stage research` |
 | `smoke/unbroken` | none | `FAIL` for checks 1 and 2, `PASS` for 3 to 8 |
 | `smoke/stage-failed` | the `review` row of `slice/status.md` set to `failed` | `FAIL 3 status`, and 4 to 8 pass |
 | `smoke/record-removed` | `slice/plan.md` removed | `FAIL 4 records`, and 3 and 5 to 8 pass |
@@ -63,7 +65,7 @@ The 15 cases:
 | `smoke/uncommitted` | an uncommitted `notes.txt` | `FAIL 7 clean-tree`, and 3 to 6 and 8 pass |
 | `smoke/index-entry` | `.slicewright/slices/index.md` cut to `# Slices`, and committed | `FAIL 8 index`, and 3 to 7 pass |
 
-Output: one line for each case, `ok <case>`, `caught <case>: <the matching line>`, or `MISSED <case>: <why>` followed by the case's output, indented. The last line is `selftest: passed, 15 cases` or `selftest: failed, <k> of 15 cases`.
+Output: one line for each case, `ok <case>`, `caught <case>: <the matching line>`, or `MISSED <case>: <why>` followed by the case's output, indented. The last line is `selftest: passed, 16 cases` or `selftest: failed, <k> of 16 cases`.
 
 Exit status: 0 when every case passes, and 1 when a case is missed. It is 2 when a tool is missing, or when it got an argument, with `selftest: <reason>` on stderr. Besides `claude`, `jq` and `git`, it needs `mktemp` and `cmp`.
 
@@ -246,6 +248,6 @@ Checking a kept run again: `sh tests/smoke.sh check <run folder>` evaluates the 
 
 ## Adding a static check
 
-1. Add the check to `tests/static.sh`, `tests/static/defaults.jq` or `tests/static/skill.awk`, with a `FAIL` line that names its subject: the file, stage or folder it concerns. Each line that `defaults.jq` or `skill.awk` prints becomes a `FAIL` line of its check.
+1. Add the check to `tests/static.sh`, `tests/static/defaults.jq` or `tests/static/skill.awk`, with a `FAIL` line that names its subject: the file, stage or folder it concerns. Each line that `defaults.jq` or `skill.awk` prints becomes a `FAIL` line of its check. A rule in `defaults.jq` applies to the defaults and to every project configuration.
 2. Add a case to `tests/selftest.sh` that breaks that one thing in a copy and expects the subject: copy a static case's block, and change its break and its expected subject. Add the case to the self-test's table on this page.
 3. Run `sh tests/selftest.sh`, and check that `sh tests/static.sh` still passes on `plugins/slice`.
